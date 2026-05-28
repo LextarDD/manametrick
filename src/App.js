@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
 import HomePage from './pages/HomePage';
 import ArchetypePage from './pages/ArchetypePage';
@@ -7,6 +8,8 @@ import AddDeckPage from './pages/AddDeckPage';
 import MyStatsPage from './pages/MyStatsPage';
 import MyMatchupPage from './pages/MyMatchupPage';
 import GameHistoryPage from './pages/GameHistoryPage';
+import Modal from './components/shared/Modal';
+import Auth from './components/shared/Auth';
 import { supabase } from './lib/supabaseClient';
 import './App.css';
 
@@ -25,11 +28,11 @@ const NAV_ITEMS = [
   { to: '/',            icon: '🌐', label: 'Vista global', exact: true },
   { to: '/my-decks',   icon: '🃏', label: 'Mis mazos',    auth: true },
   { to: '/my-stats',   icon: '📊', label: 'Mis stats',    auth: true },
-  { to: '/my-matchup', icon: '⚔', label: 'Matchups',     auth: true },
+  { to: '/my-matchup', icon: '⚔',  label: 'Matchups',     auth: true },
   { to: '/my-games',   icon: '📋', label: 'Partidas',     auth: true },
 ];
 
-const Sidebar = ({ user, onLogout }) => {
+const Sidebar = ({ user, onLogout, onShowAuth }) => {
   const location = useLocation();
   return (
     <aside className="sidebar">
@@ -37,6 +40,7 @@ const Sidebar = ({ user, onLogout }) => {
         <div className="sidebar-logo-icon">🧙</div>
         <span className="sidebar-logo-name">ManaMetrick</span>
       </div>
+
       <nav className="sidebar-nav">
         {NAV_ITEMS.map(item => {
           if (item.auth && !user) return null;
@@ -51,20 +55,43 @@ const Sidebar = ({ user, onLogout }) => {
           );
         })}
       </nav>
+
       <div className="sidebar-footer" style={{ padding: '14px 10px 0' }}>
         {user ? (
           <>
             <div style={{ fontSize: 11, color: '#5a5a82', padding: '0 14px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user.email}
             </div>
-            <button onClick={onLogout} className="nav-item" style={{ width: '100%', background: 'none', border: '1px solid transparent', textAlign: 'left', cursor: 'pointer' }}>
+            <button
+              onClick={onLogout}
+              className="nav-item"
+              style={{ width: '100%', background: 'none', border: '1px solid transparent', textAlign: 'left', cursor: 'pointer' }}
+            >
               <span className="nav-icon">🚪</span>Salir
             </button>
           </>
         ) : (
-          <div style={{ fontSize: 12, color: '#5a5a82', padding: '0 14px 8px', lineHeight: 1.5 }}>
-            Inicia sesión para registrar partidas
-          </div>
+          <button
+            onClick={onShowAuth}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              border: 'none',
+              borderRadius: 8,
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              textAlign: 'center',
+              letterSpacing: '0.03em',
+              transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            Iniciar sesión
+          </button>
         )}
       </div>
     </aside>
@@ -73,6 +100,7 @@ const Sidebar = ({ user, onLogout }) => {
 
 const AppRoutes = () => {
   const { user } = useAuth();
+  const [showAuth, setShowAuth] = useState(false);
   const handleLogout = async () => { await supabase.auth.signOut(); };
 
   return (
@@ -80,7 +108,9 @@ const AppRoutes = () => {
       <div className="app-orbs">
         <div className="orb orb-1" /><div className="orb orb-2" /><div className="orb orb-3" />
       </div>
-      <Sidebar user={user} onLogout={handleLogout} />
+
+      <Sidebar user={user} onLogout={handleLogout} onShowAuth={() => setShowAuth(true)} />
+
       <main className="main-content">
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -93,6 +123,12 @@ const AppRoutes = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      {showAuth && (
+        <Modal onClose={() => setShowAuth(false)}>
+          <Auth onClose={() => setShowAuth(false)} />
+        </Modal>
+      )}
     </div>
   );
 };
