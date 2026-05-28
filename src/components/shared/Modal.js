@@ -1,19 +1,26 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 const Modal = ({ children, onClose }) => {
+  const backdropRef = useRef(null);
+
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
-    };
+    // Scroll backdrop to top after browser autofocus
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (backdropRef.current) backdropRef.current.scrollTop = 0;
+      });
+    });
+    return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+    <div ref={backdropRef} className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal-container"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button className="modal-close" onClick={onClose} aria-label="Cerrar">✕</button>
         {children}
       </div>

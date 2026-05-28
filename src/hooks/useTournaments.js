@@ -33,7 +33,7 @@ const useTournaments = (userId) => {
           opponent_archetype: round.opponentArchetype,
           opponent_name: round.opponentName?.trim() || '',
           result,
-          note: '',
+          note: round.note?.trim() || '',  // ← antes siempre era ''
           tournament_id: tournamentId,
         });
       });

@@ -1,50 +1,99 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
-import Navbar from './components/shared/Navbar';
 import HomePage from './pages/HomePage';
 import ArchetypePage from './pages/ArchetypePage';
 import MyDecksPage from './pages/MyDecksPage';
+import AddDeckPage from './pages/AddDeckPage';
 import MyStatsPage from './pages/MyStatsPage';
 import MyMatchupPage from './pages/MyMatchupPage';
 import GameHistoryPage from './pages/GameHistoryPage';
 import { supabase } from './lib/supabaseClient';
+import './App.css';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div className="page-loading">Cargando...</div>;
+  if (loading) return (
+    <div className="loading-state" style={{ minHeight: '100vh', justifyContent: 'center' }}>
+      <div className="spinner" />
+      <span>Cargando...</span>
+    </div>
+  );
   return user ? children : <Navigate to="/" replace />;
+};
+
+const NAV_ITEMS = [
+  { to: '/',            icon: '🌐', label: 'Vista global', exact: true },
+  { to: '/my-decks',   icon: '🃏', label: 'Mis mazos',    auth: true },
+  { to: '/my-stats',   icon: '📊', label: 'Mis stats',    auth: true },
+  { to: '/my-matchup', icon: '⚔', label: 'Matchups',     auth: true },
+  { to: '/my-games',   icon: '📋', label: 'Partidas',     auth: true },
+];
+
+const Sidebar = ({ user, onLogout }) => {
+  const location = useLocation();
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-icon">🧙</div>
+        <span className="sidebar-logo-name">ManaMetrick</span>
+      </div>
+      <nav className="sidebar-nav">
+        {NAV_ITEMS.map(item => {
+          if (item.auth && !user) return null;
+          const isActive = item.exact
+            ? location.pathname === item.to
+            : location.pathname.startsWith(item.to);
+          return (
+            <NavLink key={item.to} to={item.to} className={`nav-item ${isActive ? 'active' : ''}`}>
+              <span className="nav-icon">{item.icon}</span>
+              {item.label}
+            </NavLink>
+          );
+        })}
+      </nav>
+      <div className="sidebar-footer" style={{ padding: '14px 10px 0' }}>
+        {user ? (
+          <>
+            <div style={{ fontSize: 11, color: '#5a5a82', padding: '0 14px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user.email}
+            </div>
+            <button onClick={onLogout} className="nav-item" style={{ width: '100%', background: 'none', border: '1px solid transparent', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="nav-icon">🚪</span>Salir
+            </button>
+          </>
+        ) : (
+          <div style={{ fontSize: 12, color: '#5a5a82', padding: '0 14px 8px', lineHeight: 1.5 }}>
+            Inicia sesión para registrar partidas
+          </div>
+        )}
+      </div>
+    </aside>
+  );
 };
 
 const AppRoutes = () => {
   const { user } = useAuth();
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+  const handleLogout = async () => { await supabase.auth.signOut(); };
 
   return (
-    <>
-      <Navbar user={user} onLogout={handleLogout} />
+    <div className="app-shell">
+      <div className="app-orbs">
+        <div className="orb orb-1" /><div className="orb orb-2" /><div className="orb orb-3" />
+      </div>
+      <Sidebar user={user} onLogout={handleLogout} />
       <main className="main-content">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/archetype/:name" element={<ArchetypePage />} />
-          <Route path="/my-decks" element={
-            <PrivateRoute><MyDecksPage /></PrivateRoute>
-          } />
-          <Route path="/my-stats" element={
-            <PrivateRoute><MyStatsPage /></PrivateRoute>
-          } />
-          <Route path="/my-matchup" element={
-            <PrivateRoute><MyMatchupPage /></PrivateRoute>
-          } />
-          <Route path="/my-games" element={
-            <PrivateRoute><GameHistoryPage /></PrivateRoute>
-          } />
+          <Route path="/my-decks" element={<PrivateRoute><MyDecksPage /></PrivateRoute>} />
+          <Route path="/my-decks/new" element={<PrivateRoute><AddDeckPage /></PrivateRoute>} />
+          <Route path="/my-stats" element={<PrivateRoute><MyStatsPage /></PrivateRoute>} />
+          <Route path="/my-matchup" element={<PrivateRoute><MyMatchupPage /></PrivateRoute>} />
+          <Route path="/my-games" element={<PrivateRoute><GameHistoryPage /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-    </>
+    </div>
   );
 };
 

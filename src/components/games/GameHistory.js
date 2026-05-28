@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 
+const PAGE_SIZE = 10;
+
 const RESULTS = {
   win:  { label: 'Victoria', color: '#4ade80', bg: 'rgba(74,222,128,0.12)',  dot: '#4ade80' },
   loss: { label: 'Derrota',  color: '#f87171', bg: 'rgba(248,113,113,0.12)', dot: '#f87171' },
 };
 
-// Color compartido para arquetipos (tuyo y rival)
 const ARCH_COLOR = '#7dd3fc';
 
 const GameHistory = ({ games, decks, onDelete }) => {
   const [expandedNote, setExpandedNote] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [page, setPage] = useState(1);
 
   if (!games || games.length === 0) {
     return (
@@ -31,13 +33,17 @@ const GameHistory = ({ games, decks, onDelete }) => {
     }
   };
 
+  const totalPages = Math.ceil(games.length / PAGE_SIZE);
+  const paginated  = games.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div style={styles.container}>
       <div style={styles.count}>
         {games.length} ronda{games.length !== 1 ? 's' : ''}
       </div>
+
       <div style={styles.list}>
-        {games.map((game) => {
+        {paginated.map((game) => {
           const result = RESULTS[game.result] || RESULTS.loss;
           const date = game.created_at
             ? new Date(game.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -46,41 +52,27 @@ const GameHistory = ({ games, decks, onDelete }) => {
           const isTournament = !!game.tournament_id;
           const hasNote = game.note && game.note.trim().length > 0;
           const noteOpen = expandedNote === game.id;
-
-          // Arquetipo propio del mazo
           const myArchetype = game.archetype || null;
-          // Nombre del oponente si existe
           const opponentName = game.opponent_name && game.opponent_name.trim()
-            ? game.opponent_name.trim()
-            : null;
+            ? game.opponent_name.trim() : null;
 
           return (
             <div key={game.id} style={styles.row}>
-              {/* Result badge */}
               <div style={{ ...styles.resultBadge, background: result.bg, borderColor: result.color + '40', color: result.color }}>
                 <span style={{ ...styles.resultDot, background: result.dot }} />
                 {game.score ? game.score : result.label}
               </div>
 
-              {/* Main info */}
               <div style={styles.info}>
                 <div style={styles.matchup}>
-                  {/* Mazo + arquetipo propio */}
                   <span style={styles.deckName}>{game.deck_name || '—'}</span>
                   {myArchetype && (
-                    <span style={{ ...styles.archBadge, color: ARCH_COLOR }}>
-                      {myArchetype}
-                    </span>
+                    <span style={{ ...styles.archBadge, color: ARCH_COLOR }}>{myArchetype}</span>
                   )}
                   <span style={styles.vs}>vs</span>
-                  {/* Arquetipo rival + nombre oponente */}
-                  <span style={{ ...styles.opponent, color: ARCH_COLOR }}>
-                    {game.opponent_archetype || '—'}
-                  </span>
+                  <span style={{ ...styles.opponent, color: ARCH_COLOR }}>{game.opponent_archetype || '—'}</span>
                   {opponentName && (
-                    <span style={styles.opponentName}>
-                      · {opponentName}
-                    </span>
+                    <span style={styles.opponentName}>· {opponentName}</span>
                   )}
                 </div>
                 <div style={styles.meta}>
@@ -91,21 +83,17 @@ const GameHistory = ({ games, decks, onDelete }) => {
                     </span>
                   )}
                   {isTournament && (
-                    <span style={{ ...styles.metaItem, ...styles.tournamentBadge }}>
-                      🏆 Torneo
-                    </span>
+                    <span style={{ ...styles.metaItem, ...styles.tournamentBadge }}>🏆 Torneo</span>
                   )}
                 </div>
               </div>
 
-              {/* Note toggle */}
               {hasNote && (
                 <button style={styles.noteBtn} onClick={() => setExpandedNote(noteOpen ? null : game.id)} title={noteOpen ? 'Ocultar nota' : 'Ver nota'}>
                   📝
                 </button>
               )}
 
-              {/* Delete */}
               {!isTournament && (
                 <div style={styles.deleteArea}>
                   {confirmDelete === game.id ? (
@@ -120,7 +108,6 @@ const GameHistory = ({ games, decks, onDelete }) => {
                 </div>
               )}
 
-              {/* Expanded note */}
               {hasNote && noteOpen && (
                 <div style={styles.noteExpanded}>
                   <span style={styles.noteLabel}>Nota:</span> {game.note}
@@ -130,9 +117,59 @@ const GameHistory = ({ games, decks, onDelete }) => {
           );
         })}
       </div>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            style={pageNavBtn(page === 1)}
+          >
+            ←
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+            <button key={p} onClick={() => setPage(p)} style={pageNumBtn(p === page)}>
+              {p}
+            </button>
+          ))}
+
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            style={pageNavBtn(page === totalPages)}
+          >
+            →
+          </button>
+
+          <span style={{ fontSize: 12, color: '#4a4a72', marginLeft: 8 }}>
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, games.length)} de {games.length}
+          </span>
+        </div>
+      )}
     </div>
   );
 };
+
+const pageNavBtn = (disabled) => ({
+  background: 'transparent',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: 6,
+  color: disabled ? '#2a2a48' : '#6a6a9a',
+  cursor: disabled ? 'default' : 'pointer',
+  fontSize: 14, padding: '4px 10px', transition: 'all 0.15s',
+});
+
+const pageNumBtn = (active) => ({
+  background: active ? 'rgba(108,87,255,0.2)' : 'transparent',
+  border: `1px solid ${active ? 'rgba(108,87,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+  borderRadius: 6,
+  color: active ? '#a89fff' : '#6a6a9a',
+  cursor: 'pointer',
+  fontSize: 13, fontWeight: active ? 600 : 400,
+  padding: '4px 10px', minWidth: 32, transition: 'all 0.15s',
+});
 
 const styles = {
   container: { display: 'flex', flexDirection: 'column', gap: 0 },

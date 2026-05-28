@@ -1,51 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Modal from '../shared/Modal';
 import TournamentRound from './TournamentRound';
 
-/**
- * TournamentForm
- * Modo creación: sin initialData
- * Modo edición:  initialData = { tournament, games }
- *   tournament: objeto de la tabla tournaments
- *   games: partidas de ese torneo (para reconstruir los rounds)
- */
 const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => {
   const isEditing = !!initialData;
+  const bestOf = 3; // siempre Bo3
 
-  // Reconstruir rounds desde las partidas del torneo si estamos editando
-  const buildRoundsFromGames = (games, bo) => {
-    if (!games || games.length === 0) return buildEmptyRounds(4, bo);
-    // Agrupar partidas por opponent_archetype en orden de aparición
+  const buildRoundsFromGames = (games) => {
+    if (!games || games.length === 0) return buildEmptyRounds(4);
     const roundMap = new Map();
     games.forEach(g => {
-      if (!roundMap.has(g.opponent_archetype)) roundMap.set(g.opponent_archetype, []);
-      roundMap.get(g.opponent_archetype).push(g.result);
+      if (!roundMap.has(g.opponent_archetype)) {
+        roundMap.set(g.opponent_archetype, {
+          results: [],
+          opponentName: g.opponent_name || '',
+          note: g.note || '',
+        });
+      }
+      roundMap.get(g.opponent_archetype).results.push(g.result);
     });
-    return Array.from(roundMap.entries()).map(([arch, results]) => ({
+    return Array.from(roundMap.entries()).map(([arch, data]) => ({
       opponentArchetype: arch,
-      results: Array.from({ length: bo }, (_, i) => results[i] || null),
+      opponentName: data.opponentName,
+      note: data.note,
+      results: Array.from({ length: bestOf }, (_, i) => data.results[i] || null),
     }));
   };
 
-  function buildEmptyRounds(n, bo) {
+  function buildEmptyRounds(n) {
     return Array.from({ length: n }, () => ({
       opponentArchetype: '',
-      results: Array.from({ length: bo }, () => null),
+      results: Array.from({ length: bestOf }, () => null),
     }));
   }
 
-  const initialBo = 2;
   const [selectedDeckId, setSelectedDeckId] = useState(
     isEditing ? initialData.tournament.deck_id : ''
   );
   const [tournamentName, setTournamentName] = useState(
     isEditing ? initialData.tournament.name || '' : ''
   );
-  const [bestOf, setBestOf] = useState(initialBo);
   const [rounds, setRounds] = useState(() =>
-    isEditing
-      ? buildRoundsFromGames(initialData.games, initialBo)
-      : buildEmptyRounds(4, initialBo)
+    isEditing ? buildRoundsFromGames(initialData.games) : buildEmptyRounds(4)
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -59,16 +55,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
 
   const removeLastRound = () => {
     setRounds(prev => prev.length > 1 ? prev.slice(0, -1) : prev);
-  };
-
-  const handleBestOfChange = (bo) => {
-    setBestOf(bo);
-    setRounds(prev =>
-      prev.map(r => ({
-        ...r,
-        results: Array.from({ length: bo }, (_, i) => r.results[i] || null),
-      }))
-    );
   };
 
   const handleRoundChange = (index, updated) => {
@@ -149,7 +135,7 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
         </div>
 
         {/* Deck selector */}
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 20 }}>
           <label style={labelStyle}>Mazo *</label>
           <select value={selectedDeckId} onChange={e => setSelectedDeckId(e.target.value)} style={inputStyle}>
             <option value="">Selecciona un mazo...</option>
@@ -159,28 +145,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
               </option>
             ))}
           </select>
-        </div>
-
-        {/* Formato */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>Formato</label>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            {[2, 3].map(bo => (
-              <button
-                key={bo}
-                onClick={() => handleBestOfChange(bo)}
-                style={{
-                  padding: '8px 20px', borderRadius: 6, border: '1px solid',
-                  borderColor: bestOf === bo ? '#6366f1' : '#333',
-                  background: bestOf === bo ? 'rgba(99,102,241,0.2)' : 'transparent',
-                  color: bestOf === bo ? '#818cf8' : '#888',
-                  cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
-                }}
-              >
-                Bo{bo}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Rounds header */}

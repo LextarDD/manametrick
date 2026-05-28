@@ -1,5 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
-import Modal from '../shared/Modal';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
+import useDecks from '../hooks/useDecks';
+import useArchetypes from '../hooks/useArchetypes';
 
 const parseLine = (line) => {
   const match = line.trim().match(/^(\d+)\s+(.+)$/);
@@ -24,8 +27,12 @@ const validateCard = async (name) => {
   }
 };
 
-const AddDeck = ({ userId, archetypes, onDeckAdded }) => {
-  const [open, setOpen] = useState(false);
+const AddDeckPage = () => {
+  const { user } = useAuth();
+  const { addDeck } = useDecks(user?.id);
+  const { archetypes } = useArchetypes();
+  const navigate = useNavigate();
+
   const [name, setName] = useState('');
   const [archetype, setArchetype] = useState('');
   const [listText, setListText] = useState('');
@@ -33,9 +40,6 @@ const AddDeck = ({ userId, archetypes, onDeckAdded }) => {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState([]);
   const [formError, setFormError] = useState(null);
-
-  const reset = () => { setName(''); setArchetype(''); setListText(''); setErrors([]); setFormError(null); };
-  const handleClose = () => { setOpen(false); reset(); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,42 +51,59 @@ const AddDeck = ({ userId, archetypes, onDeckAdded }) => {
     const mainCards = main.map(parseLine).filter(Boolean);
     const sideCards = side.map(parseLine).filter(Boolean);
     if (mainCards.length === 0) { setFormError('Formato incorrecto. Usa "4 Lightning Bolt".'); return; }
+
     setValidating(true);
     const uniqueNames = [...new Set([...mainCards, ...sideCards].map(c => c.name))];
     const results = await Promise.all(uniqueNames.map(validateCard));
     const invalid = results.filter(r => !r.valid);
     setValidating(false);
-    if (invalid.length > 0) { setErrors(invalid.map(r => `"${r.name}" no es legal en Pauper o no existe.`)); return; }
+
+    if (invalid.length > 0) {
+      setErrors(invalid.map(r => `"${r.name}" no es legal en Pauper o no existe.`));
+      return;
+    }
+
     const nameMap = Object.fromEntries(results.map(r => [r.originalName, r.name]));
     const normalizeLines = (cards) => cards.map(c => `${c.qty} ${nameMap[c.name] ?? c.name}`);
+
     setSaving(true);
-    const result = await onDeckAdded({
-      name: name.trim(), archetype: archetype || null,
-      mainboard: normalizeLines(mainCards), sideboard: normalizeLines(sideCards),
+    const result = await addDeck({
+      name: name.trim(),
+      archetype: archetype || null,
+      mainboard: normalizeLines(mainCards),
+      sideboard: normalizeLines(sideCards),
     });
     setSaving(false);
+
     if (result?.error) { setFormError(result.error); return; }
-    handleClose();
+    navigate('/my-decks');
   };
 
   return (
-    <>
-      <button className="btn btn-primary" onClick={() => setOpen(true)}>
-        + Añadir mazo
-      </button>
+    <div className="page">
+      <div className="page-header anim-fade-up">
+        <div>
+          <h1 className="page-title">Nuevo mazo</h1>
+          <p className="page-subtitle">Añade un mazo a tu colección</p>
+        </div>
+        <button className="btn btn-ghost" onClick={() => navigate('/my-decks')}>
+          ← Volver
+        </button>
+      </div>
 
-      {open && (
-        <Modal onClose={handleClose}>
-          <h2 className="modal-title">Nuevo mazo</h2>
+      <div className="card anim-fade-up">
+        <div className="card-body">
           <form onSubmit={handleSubmit} className="deck-form">
-            {/* Trampa de foco: evita que el textarea haga scroll automático al abrirse */}
-            <div tabIndex={0} style={{ outline: 'none', height: 0, overflow: 'hidden' }} aria-hidden="true" />
 
-            {/* Nombre y arquetipo en fila */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div className="form-group">
                 <label>Nombre del mazo *</label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Burn Pauper" required />
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Ej: WW Heroic, Burn..."
+                  required
+                />
               </div>
               <div className="form-group">
                 <label>Arquetipo</label>
@@ -99,9 +120,8 @@ const AddDeck = ({ userId, archetypes, onDeckAdded }) => {
                 value={listText}
                 onChange={e => setListText(e.target.value)}
                 placeholder={`4 Lightning Bolt\n4 Monastery Swiftspear\n...\nSideboard\n2 Pyroblast`}
-                rows={10}
+                rows={18}
                 className="deck-textarea"
-                tabIndex={-1}
               />
               <span className="form-hint">
                 Una carta por línea: <code>4 Lightning Bolt</code>. Escribe <code>Sideboard</code> para separar el banquillo.
@@ -109,21 +129,25 @@ const AddDeck = ({ userId, archetypes, onDeckAdded }) => {
             </div>
 
             {errors.length > 0 && (
-              <ul className="error-list">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+              <ul className="error-list">
+                {errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
             )}
             {formError && <p className="auth-error">{formError}</p>}
 
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={handleClose}>Cancelar</button>
+              <button type="button" className="btn btn-ghost" onClick={() => navigate('/my-decks')}>
+                Cancelar
+              </button>
               <button type="submit" className="btn btn-primary" disabled={validating || saving}>
-                {validating ? 'Validando...' : saving ? 'Guardando...' : 'Guardar mazo'}
+                {validating ? 'Validando cartas...' : saving ? 'Guardando...' : 'Guardar mazo'}
               </button>
             </div>
           </form>
-        </Modal>
-      )}
-    </>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default AddDeck;
+export default AddDeckPage;

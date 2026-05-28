@@ -1,4 +1,3 @@
-// src/pages/MyMatchupPage.js
 import React from 'react';
 import { useAuth } from '../AuthContext';
 import useGames from '../hooks/useGames';
@@ -8,149 +7,98 @@ const MyMatchupPage = () => {
   const { user } = useAuth();
   const { games, loading, error } = useGames(user?.id);
 
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0a0f1e',
-      color: '#f1f5f9',
-      fontFamily: "'Crimson Pro', Georgia, serif",
-    }}>
-      {/* Hero header */}
-      <div style={{
-        background: 'linear-gradient(180deg, #0f172a 0%, #0a0f1e 100%)',
-        borderBottom: '1px solid #1e293b',
-        padding: '40px 24px 32px',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute', top: '-40px', left: '50%', transform: 'translateX(-50%)',
-          width: '600px', height: '200px',
-          background: 'radial-gradient(ellipse, rgba(99,102,241,0.12) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
+  const wins   = games.filter(g => g.result === 'win').length;
+  const losses = games.filter(g => g.result === 'loss').length;
+  const wr     = games.length > 0 ? Math.round(wins / games.length * 1000) / 10 : null;
 
-        <div style={{ maxWidth: '960px', margin: '0 auto', position: 'relative' }}>
-          <div style={{
-            fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase',
-            color: '#6366f1', marginBottom: '10px',
-          }}>
-            ⚔ Análisis personal
-          </div>
-          <h1 style={{
-            margin: 0,
-            fontSize: 'clamp(1.8rem, 4vw, 2.8rem)',
-            fontWeight: 700,
-            color: '#f1f5f9',
-            lineHeight: 1.1,
-          }}>
-            Mi Matriz de Matchups
-          </h1>
-          <p style={{
-            margin: '12px 0 0',
-            color: '#64748b',
-            fontSize: '1rem',
-            maxWidth: '480px',
-          }}>
-            Rendimiento personal cruzado entre todos tus arquetipos registrados.
-          </p>
+  return (
+    <div className="page">
+      {/* Header */}
+      <div className="page-header anim-fade-up">
+        <div>
+          <h1 className="page-title">Mi Matriz de <span className="gradient-text">Matchups</span></h1>
+          <p className="page-subtitle">Rendimiento personal cruzado entre todos tus arquetipos registrados</p>
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ maxWidth: '960px', margin: '0 auto', padding: '32px 24px' }}>
+      {/* Loading */}
+      {loading && (
+        <div className="loading-state">
+          <div className="spinner" />
+          <span>Cargando partidas...</span>
+        </div>
+      )}
 
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#475569' }}>
-            <div style={{
-              width: '32px', height: '32px', border: '2px solid #334155',
-              borderTopColor: '#6366f1', borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-              margin: '0 auto 16px',
-            }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            Cargando partidas…
-          </div>
-        )}
+      {/* Error */}
+      {error && (
+        <div className="auth-error" style={{ marginBottom: 20 }}>
+          Error al cargar las partidas: {error}
+        </div>
+      )}
 
-        {error && (
-          <div style={{
-            background: '#7f1d1d', border: '1px solid #991b1b',
-            borderRadius: '10px', padding: '16px 20px',
-            color: '#fca5a5', fontSize: '0.9rem',
-          }}>
-            Error al cargar las partidas: {error}
-          </div>
-        )}
-
-        {!loading && !error && (
-          <>
-            {games.length > 0 && (
-              <div style={{
-                display: 'flex', gap: '16px', flexWrap: 'wrap',
-                marginBottom: '28px',
-              }}>
-                {[
-                  { label: 'Partidas totales', value: games.length, color: '#94a3b8' },
-                  { label: 'Victorias', value: games.filter(g => g.result === 'win').length, color: '#4ade80' },
-                  { label: 'Derrotas', value: games.filter(g => g.result === 'loss').length, color: '#f87171' },
-                  {
-                    label: 'Winrate global',
-                    value: `${Math.round(games.filter(g => g.result === 'win').length / games.length * 1000) / 10}%`,
-                    color: games.filter(g => g.result === 'win').length / games.length >= 0.5 ? '#4ade80' : '#f87171',
-                  },
-                ].map(({ label, value, color }) => (
-                  <div key={label} style={{
-                    background: '#0f172a',
-                    border: '1px solid #1e293b',
-                    borderRadius: '10px',
-                    padding: '14px 20px',
-                    flex: '1',
-                    minWidth: '100px',
-                  }}>
-                    <div style={{ fontSize: '1.6rem', fontWeight: 700, color }}>{value}</div>
-                    <div style={{ fontSize: '0.7rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>{label}</div>
-                  </div>
-                ))}
+      {!loading && !error && (
+        <>
+          {/* Stat chips */}
+          {games.length > 0 && (
+            <div className="stat-chips anim-fade-up" style={{ marginBottom: 20 }}>
+              <div className="stat-chip purple">
+                <div className="stat-chip-value">{games.length}</div>
+                <div className="stat-chip-label">Partidas totales</div>
               </div>
-            )}
-
-            {games.length > 0 && (
-              <div style={{
-                marginBottom: '20px',
-                padding: '10px 16px',
-                background: '#0f172a',
-                border: '1px solid #1e293b',
-                borderRadius: '8px',
-                fontSize: '0.8rem',
-                color: '#64748b',
-                display: 'flex',
-                gap: '20px',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-              }}>
-                <span>Celdas = tu winrate como <strong style={{ color: '#94a3b8' }}>fila</strong> contra <strong style={{ color: '#94a3b8' }}>columna</strong></span>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  {[
-                    { color: '#166534', bg: '#14532d', label: '≥60%' },
-                    { color: '#15803d', bg: '#166534', label: '50–60%' },
-                    { color: '#f97316', bg: '#431407', label: '40–50%' },
-                    { color: '#ef4444', bg: '#7f1d1d', label: '<40%' },
-                  ].map(({ color, bg, label }) => (
-                    <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '12px', height: '12px', background: bg, border: `1px solid ${color}`, borderRadius: '3px', display: 'inline-block' }} />
-                      {label}
-                    </span>
-                  ))}
+              <div className="stat-chip green">
+                <div className="stat-chip-value">{wins}</div>
+                <div className="stat-chip-label">Victorias</div>
+              </div>
+              <div className="stat-chip red">
+                <div className="stat-chip-value">{losses}</div>
+                <div className="stat-chip-label">Derrotas</div>
+              </div>
+              {wr !== null && (
+                <div className={`stat-chip ${wr >= 50 ? 'green' : 'red'}`}>
+                  <div className="stat-chip-value">{wr}%</div>
+                  <div className="stat-chip-label">Winrate global</div>
                 </div>
-                <span style={{ marginLeft: 'auto', color: '#475569' }}>Haz clic en una celda para ver el detalle</span>
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
-            <MyMatchupMatrix games={games} user={user} />
-          </>
-        )}
-      </div>
+          {/* Legend */}
+          {games.length > 0 && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-body" style={{ padding: '12px 18px' }}>
+                <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                  <span>Celdas = tu winrate como <strong style={{ color: '#9d8bff' }}>fila</strong> contra <strong style={{ color: '#9d8bff' }}>columna</strong></span>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {[
+                      { cls: 'favorable',   label: '≥60%' },
+                      { cls: 'favorable',   label: '50–60%', style: { background: 'rgba(6,80,55,.16)', borderColor: 'rgba(34,196,144,.18)' } },
+                      { cls: 'unfavorable', label: '40–50%', style: { background: 'rgba(240,160,48,.12)', borderColor: 'rgba(240,160,48,.25)', color: '#c8922a' } },
+                      { cls: 'unfavorable', label: '<40%' },
+                    ].map(({ cls, label, style: s }) => (
+                      <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span className={`mx-cell ${cls}`} style={{ width: 14, height: 14, display: 'inline-block', borderRadius: 3, padding: 0, ...s }} />
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <span style={{ marginLeft: 'auto', color: 'var(--text-dim)', fontSize: 11 }}>Haz clic en una celda para ver el detalle</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Matrix */}
+          <div className="card">
+            <div className="card-body">
+              <div className="card-title">
+                <div className="card-title-icon blue">⚔</div>
+                <span className="card-title-text">Matriz personal de matchups</span>
+              </div>
+              <MyMatchupMatrix games={games} user={user} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
