@@ -32,14 +32,12 @@ const MatchupMatrix = ({ matrix, archetypeList, onSelectArchetype }) => {
   }
 
   return (
-    <div style={{
-      overflowX: 'auto',
+    <div className="matchup-matrix-scroll" style={{
       borderRadius: '14px',
       background: 'linear-gradient(135deg, #0d1117 0%, #0f172a 50%, #0d1117 100%)',
       border: '1px solid rgba(99,102,241,0.2)',
       boxShadow: '0 0 0 1px rgba(99,102,241,0.08), 0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
       position: 'relative',
-      overflow: 'hidden',
     }}>
       {/* Subtle corner glow */}
       <div style={{
@@ -113,6 +111,7 @@ const MatchupMatrix = ({ matrix, archetypeList, onSelectArchetype }) => {
                       textAlign: 'center',
                       borderLeft: '1px solid rgba(255,255,255,0.04)',
                       background: 'rgba(99,102,241,0.06)',
+                      minWidth: '60px',
                     }}>
                       <span style={{ color: '#334155', fontSize: '16px', fontWeight: 300 }}>—</span>
                     </td>

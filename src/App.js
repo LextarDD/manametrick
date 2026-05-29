@@ -35,30 +35,34 @@ const NAV_ITEMS = [
 const Sidebar = ({ user, onLogout, onShowAuth, collapsed, onToggle }) => {
   const location = useLocation();
   return (
-    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
-      <button className="sidebar-toggle" onClick={onToggle} title={collapsed ? 'Mostrar menú' : 'Ocultar menú'}>
+    <>
+      <button
+        className={`sidebar-toggle${collapsed ? ' sidebar-toggle--collapsed' : ''}`}
+        onClick={onToggle}
+        title={collapsed ? 'Mostrar menú' : 'Ocultar menú'}
+      >
         {collapsed ? '›' : '‹'}
       </button>
-      {!collapsed && <>
-        <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">🧙</div>
-          <span className="sidebar-logo-name">ManaMetrick</span>
-        </div>
+      <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-icon">🧙</div>
+        <span className="sidebar-logo-name">ManaMetrick</span>
+      </div>
 
-        <nav className="sidebar-nav">
-          {NAV_ITEMS.map(item => {
-            if (item.auth && !user) return null;
-            const isActive = item.exact
-              ? location.pathname === item.to
-              : location.pathname.startsWith(item.to);
-            return (
-              <NavLink key={item.to} to={item.to} className={`nav-item ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">{item.icon}</span>
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
+      <nav className="sidebar-nav">
+        {NAV_ITEMS.map(item => {
+          if (item.auth && !user) return null;
+          const isActive = item.exact
+            ? location.pathname === item.to
+            : location.pathname.startsWith(item.to);
+          return (
+            <NavLink key={item.to} to={item.to} className={`nav-item ${isActive ? 'active' : ''}`}>
+              <span className="nav-icon">{item.icon}</span>
+              {item.label}
+            </NavLink>
+          );
+        })}
+      </nav>
 
       <div className="sidebar-footer" style={{ padding: '14px 10px 0' }}>
         {user ? (
@@ -98,8 +102,8 @@ const Sidebar = ({ user, onLogout, onShowAuth, collapsed, onToggle }) => {
           </button>
         )}
       </div>
-      </>}
     </aside>
+    </>
   );
 };
 
