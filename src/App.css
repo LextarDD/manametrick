@@ -39,6 +39,7 @@
 /* ── Base ── */
 html, body, #root {
   height: 100%;
+  min-width: 600px;
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font);
@@ -51,6 +52,7 @@ html, body, #root {
 .app-shell {
   display: flex;
   min-height: 100vh;
+  min-width: 600px;
   position: relative;
 }
 
@@ -180,6 +182,7 @@ html, body, #root {
 .main-content {
   margin-left: 210px;
   flex: 1;
+  min-width: 0;
   position: relative;
   z-index: 1;
   min-height: 100vh;
@@ -828,7 +831,7 @@ html, body, #root {
 .sidebar-toggle {
   position: fixed;
   top: 16px;
-  left: 182px; /* borde derecho del sidebar (210px) - mitad del botón */
+  left: 182px;
   z-index: 200;
   width: 28px;
   height: 28px;
@@ -850,7 +853,6 @@ html, body, #root {
   color: #fff;
   border-color: rgba(108, 87, 255, 0.7);
 }
-/* Cuando el sidebar está cerrado, el botón va a la esquina */
 .sidebar-toggle--collapsed {
   left: 14px;
 }
@@ -872,7 +874,7 @@ html, body, #root {
   margin-left: 0;
 }
 
-/* ─── Matchup matrix scroll horizontal en móvil ──────────────────────────── */
+/* ─── Matchup matrix scroll horizontal ──────────────────────────────────── */
 .matchup-matrix-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -881,7 +883,7 @@ html, body, #root {
   min-width: 480px;
 }
 
-/* ─── Mobile adjustments ─────────────────────────────────────────────────── */
+/* ─── Mobile ─────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .page,
   .page-wide {

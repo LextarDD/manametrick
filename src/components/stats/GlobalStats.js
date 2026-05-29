@@ -132,11 +132,13 @@ export default function GlobalStats() {
           <p style={styles.matrixNote}>
             Winrate de cada arquetipo (filas) contra los rivales (columnas). Mínimo 3 partidas para mostrar dato.
           </p>
-          <MatchupMatrix
-            matrix={matchupMatrix}
-            archetypeList={archetypeList}
-            onSelectArchetype={setSelectedArchetype}
-          />
+          <div style={styles.matrixScroll}>
+            <MatchupMatrix
+              matrix={matchupMatrix}
+              archetypeList={archetypeList}
+              onSelectArchetype={setSelectedArchetype}
+            />
+          </div>
         </section>
       )}
 
@@ -173,6 +175,7 @@ const styles = {
   barBg: { background: '#0f172a', borderRadius: '4px', height: 7, width: '100%', overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: '4px', transition: 'width 0.3s ease' },
   matrixNote: { color: '#64748b', fontSize: '0.8rem', margin: 0 },
+  matrixScroll: { overflowX: 'auto', WebkitOverflowScrolling: 'touch' },
   loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '1rem' },
   spinner: { width: 32, height: 32, borderRadius: '50%', border: '3px solid #334155', borderTopColor: '#7dd3fc', animation: 'spin 0.8s linear infinite' },
   loadingText: { color: '#64748b', fontSize: '0.85rem' },
