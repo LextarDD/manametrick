@@ -36,13 +36,6 @@ const Sidebar = ({ user, onLogout, onShowAuth, collapsed, onToggle }) => {
   const location = useLocation();
   return (
     <>
-      <button
-        className={`sidebar-toggle${collapsed ? ' sidebar-toggle--collapsed' : ''}`}
-        onClick={onToggle}
-        title={collapsed ? 'Mostrar menú' : 'Ocultar menú'}
-      >
-        {collapsed ? '›' : '‹'}
-      </button>
       <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">🧙</div>
@@ -103,6 +96,13 @@ const Sidebar = ({ user, onLogout, onShowAuth, collapsed, onToggle }) => {
         )}
       </div>
     </aside>
+      <button
+        className={`sidebar-toggle${collapsed ? ' sidebar-toggle--collapsed' : ''}`}
+        onClick={onToggle}
+        title={collapsed ? 'Mostrar menú' : 'Ocultar menú'}
+      >
+        {collapsed ? '›' : '‹'}
+      </button>
     </>
   );
 };

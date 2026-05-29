@@ -100,12 +100,22 @@ const GameHistoryPage = () => {
     let totalGames = 0;
     let totalTournaments = 0;
 
+    // Mapa nombre de mazo → deck para resolver deck_id
+    const deckByName = {};
+    (decks || []).forEach(d => { deckByName[d.name.trim().toLowerCase()] = d; });
+    const resolveDeck = (name) => {
+      if (!name) return { deck_id: null, deck_name: '' };
+      const deck = deckByName[name.trim().toLowerCase()];
+      return deck ? { deck_id: deck.id, deck_name: deck.name } : { deck_id: null, deck_name: name };
+    };
+
     // Partidas sueltas
     for (const row of loose) {
       try {
+        const { deck_id, deck_name } = resolveDeck(row.deck_name);
         await addGame({
-          deck_name:          row.deck_name || '',
-          deck_id:            null,
+          deck_name,
+          deck_id,
           archetype:          row.archetype,
           opponent_archetype: row.opponent_archetype,
           opponent_name:      row.opponent_name || '',
@@ -123,25 +133,29 @@ const GameHistoryPage = () => {
     for (const [, rows] of Object.entries(grouped)) {
       try {
         const tournamentName = rows[0]?.tournament_name || '';
+        const { deck_id: tDeckId, deck_name: tDeckName } = resolveDeck(rows[0]?.deck_name);
         const { data: t, error: tErr } = await supabase
           .from('tournaments')
-          .insert([{ user_id: user.id, deck_name: rows[0]?.deck_name || '', name: tournamentName }])
+          .insert([{ user_id: user.id, deck_id: tDeckId, deck_name: tDeckName, name: tournamentName }])
           .select().single();
         if (tErr) throw new Error(tErr.message);
 
-        const gameRows = rows.map(row => ({
-          user_id:            user.id,
-          deck_name:          row.deck_name || '',
-          deck_id:            null,
-          archetype:          row.archetype,
-          opponent_archetype: row.opponent_archetype,
-          opponent_name:      row.opponent_name || '',
-          result:             row.result,
-          score:              row.score,
-          note:               row.note || '',
-          tournament_id:      t.id,
-          created_at:         row.created_at,
-        }));
+        const gameRows = rows.map(row => {
+          const { deck_id, deck_name } = resolveDeck(row.deck_name);
+          return {
+            user_id:            user.id,
+            deck_name,
+            deck_id,
+            archetype:          row.archetype,
+            opponent_archetype: row.opponent_archetype,
+            opponent_name:      row.opponent_name || '',
+            result:             row.result,
+            score:              row.score,
+            note:               row.note || '',
+            tournament_id:      t.id,
+            created_at:         row.created_at,
+          };
+        });
 
         const { error: gErr } = await supabase.from('games').insert(gameRows);
         if (gErr) throw new Error(gErr.message);
