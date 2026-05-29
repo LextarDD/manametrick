@@ -39,6 +39,7 @@
 /* ── Base ── */
 html, body, #root {
   height: 100%;
+  min-width: 600px;
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font);
@@ -51,6 +52,7 @@ html, body, #root {
 .app-shell {
   display: flex;
   min-height: 100vh;
+  min-width: 600px;
   position: relative;
 }
 
@@ -885,22 +887,21 @@ html, body, #root {
 @media (max-width: 768px) {
   .page,
   .page-wide {
-    padding: 20px 16px 24px;
+    padding: 56px 16px 24px;
   }
   .modal-backdrop {
     left: 0 !important;
     padding: 16px 12px;
   }
-
-  /* En móvil el sidebar es overlay, no empuja el contenido */
+}
+/* ─── Mobile sidebar toggle fix ─────────────────────────────────────────── */
+@media (max-width: 768px) {
   .main-content {
     margin-left: 0 !important;
   }
   .main-content--expanded {
     margin-left: 0 !important;
   }
-
-  /* Sidebar ocupa toda la pantalla como overlay cuando está abierto */
   .sidebar {
     width: 220px !important;
     z-index: 200;
@@ -910,18 +911,21 @@ html, body, #root {
     width: 0 !important;
     overflow: hidden;
   }
-
-  /* Botón toggle: esquina superior izquierda, siempre visible */
   .sidebar-toggle {
-    position: fixed;
-    top: 14px;
-    left: 14px;
-    right: auto;
-    bottom: auto;
-    z-index: 300;
+    top: 14px !important;
+    left: 206px !important;
+    right: auto !important;
+    bottom: auto !important;
+    z-index: 300 !important;
   }
   .sidebar-toggle--collapsed {
-    left: 14px;
-    right: auto;
+    left: 14px !important;
+  }
+  .page, .page-wide {
+    padding: 20px 16px 24px;
+  }
+  .modal-backdrop {
+    left: 0 !important;
+    padding: 16px 12px;
   }
 }
