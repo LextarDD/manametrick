@@ -824,3 +824,50 @@ html, body, #root {
   padding: 4px 10px;
   font-size: 11px;
 }
+/* ── Sidebar toggle button ── */
+.sidebar-toggle {
+  position: absolute;
+  top: 16px;
+  right: -13px;
+  z-index: 110;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(108, 87, 255, 0.35);
+  background: #0c0d1a;
+  color: #9d8bff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.sidebar-toggle:hover {
+  background: rgba(108, 87, 255, 0.2);
+  color: #fff;
+  border-color: rgba(108, 87, 255, 0.6);
+}
+
+/* ── Sidebar collapsed state ── */
+.sidebar--collapsed {
+  width: 48px;
+  min-width: 48px;
+  padding: 0;
+}
+
+/* ── Sidebar width transition ── */
+.sidebar {
+  transition: width 0.22s ease, min-width 0.22s ease;
+}
+
+/* ── Main content expanded when sidebar collapsed ── */
+.main-content--expanded {
+  margin-left: 48px;
+}
+
+/* ── Modal backdrop adjustment when sidebar collapsed ── */
+.main-content--expanded ~ * .modal-backdrop {
+  left: 48px;
+}
