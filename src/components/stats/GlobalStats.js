@@ -132,13 +132,11 @@ export default function GlobalStats() {
           <p style={styles.matrixNote}>
             Winrate de cada arquetipo (filas) contra los rivales (columnas). Mínimo 3 partidas para mostrar dato.
           </p>
-          <div style={styles.matrixScroll}>
-            <MatchupMatrix
-              matrix={matchupMatrix}
-              archetypeList={archetypeList}
-              onSelectArchetype={setSelectedArchetype}
-            />
-          </div>
+          <MatchupMatrix
+            matrix={matchupMatrix}
+            archetypeList={archetypeList}
+            onSelectArchetype={setSelectedArchetype}
+          />
         </section>
       )}
 
@@ -158,8 +156,8 @@ export default function GlobalStats() {
 }
 
 const styles = {
-  wrapper: { display: 'flex', flexDirection: 'column', gap: '2.5rem' },
-  section: { display: 'flex', flexDirection: 'column', gap: '1rem' },
+  wrapper: { display: 'flex', flexDirection: 'column', gap: '2.5rem', width: '100%' },
+  section: { display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' },
   sectionHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' },
   sectionTitle: { fontSize: '1.1rem', fontWeight: 700, color: '#e2e8f0', margin: 0, letterSpacing: '-0.01em' },
   toggleGroup: { display: 'flex', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden' },
@@ -175,7 +173,6 @@ const styles = {
   barBg: { background: '#0f172a', borderRadius: '4px', height: 7, width: '100%', overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: '4px', transition: 'width 0.3s ease' },
   matrixNote: { color: '#64748b', fontSize: '0.8rem', margin: 0 },
-  matrixScroll: { overflowX: 'auto', WebkitOverflowScrolling: 'touch' },
   loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '1rem' },
   spinner: { width: 32, height: 32, borderRadius: '50%', border: '3px solid #334155', borderTopColor: '#7dd3fc', animation: 'spin 0.8s linear infinite' },
   loadingText: { color: '#64748b', fontSize: '0.85rem' },

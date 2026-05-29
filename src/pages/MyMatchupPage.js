@@ -12,7 +12,7 @@ const MyMatchupPage = () => {
   const wr     = games.length > 0 ? Math.round(wins / games.length * 1000) / 10 : null;
 
   return (
-    <div className="page">
+    <div className="page-wide" style={{ maxWidth: 'none', padding: '32px 24px' }}>
       {/* Header */}
       <div className="page-header anim-fade-up">
         <div>
@@ -88,8 +88,8 @@ const MyMatchupPage = () => {
           )}
 
           {/* Matrix */}
-          <div className="card">
-            <div className="card-body">
+          <div className="card" style={{ width: '100%' }}>
+            <div className="card-body" style={{ padding: '16px 12px' }}>
               <div className="card-title">
                 <div className="card-title-icon blue">⚔</div>
                 <span className="card-title-text">Matriz personal de matchups</span>

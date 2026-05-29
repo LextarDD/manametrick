@@ -6,13 +6,52 @@ import useArchetypes from '../hooks/useArchetypes';
 import GameHistory from '../components/games/GameHistory';
 import GameFilters from '../components/games/GameFilters';
 import AddGameModal from '../components/games/AddGameModal';
+import useTournaments from '../hooks/useTournaments';
+import ImportGamesModal from '../components/games/ImportGamesModal';
+import { supabase } from '../lib/supabaseClient';
+
+const exportToCSV = (games, tournamentMap) => {
+  const headers = ['Fecha', 'Mazo', 'Arquetipo propio', 'Arquetipo rival', 'Oponente', 'Score', 'Torneo', 'Nota', '_tournament_id'];
+
+  const rows = games.map(g => {
+    const fecha = g.created_at
+      ? new Date(g.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '';
+    const score = g.score && g.score.trim() ? g.score.trim() : (g.result === 'win' ? '2-0' : '0-2');
+    const torneo = g.tournament_id ? (tournamentMap[g.tournament_id] || 'Torneo') : '';
+    return [
+      fecha,
+      g.deck_name || '',
+      g.archetype || '',
+      g.opponent_archetype || '',
+      g.opponent_name || '',
+      score,
+      torneo,
+      g.note || '',
+      g.tournament_id || '',
+    ].map(val => `"${String(val).replace(/"/g, '""')}"`);
+  });
+
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `partidas_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 const GameHistoryPage = () => {
   const { user } = useAuth();
-  const { games, loading, error, addGame, deleteGame } = useGames(user?.id);
+  const { games, loading, error, addGame, deleteGame, refetch } = useGames(user?.id);
   const { decks } = useDecks(user?.id);
+  const { tournaments } = useTournaments(user?.id);
+  const tournamentMap = Object.fromEntries((tournaments || []).map(t => [t.id, t.name || 'Torneo']));
   const { archetypes } = useArchetypes();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', deckId: '' });
   const [saveError, setSaveError] = useState('');
 
@@ -57,6 +96,86 @@ const GameHistoryPage = () => {
     catch (err) { setSaveError(err.message); throw err; }
   };
 
+  const handleImport = async ({ grouped, loose, onProgress, onError }) => {
+    let totalGames = 0;
+    let totalTournaments = 0;
+
+    // Partidas sueltas
+    for (const row of loose) {
+      try {
+        await addGame({
+          deck_name:          row.deck_name || '',
+          deck_id:            null,
+          archetype:          row.archetype,
+          opponent_archetype: row.opponent_archetype,
+          opponent_name:      row.opponent_name || '',
+          result:             row.result,
+          score:              row.score,
+          note:               row.note || '',
+          tournament_id:      null,
+          created_at:         row.created_at,
+        });
+        totalGames++;
+      } catch (e) { onError(`Fila ${row._rowNum}: ${e.message}`); }
+    }
+
+    // Torneos agrupados
+    for (const [, rows] of Object.entries(grouped)) {
+      try {
+        const tournamentName = rows[0]?.tournament_name || '';
+        const { data: t, error: tErr } = await supabase
+          .from('tournaments')
+          .insert([{ user_id: user.id, deck_name: rows[0]?.deck_name || '', name: tournamentName }])
+          .select().single();
+        if (tErr) throw new Error(tErr.message);
+
+        const gameRows = rows.map(row => ({
+          user_id:            user.id,
+          deck_name:          row.deck_name || '',
+          deck_id:            null,
+          archetype:          row.archetype,
+          opponent_archetype: row.opponent_archetype,
+          opponent_name:      row.opponent_name || '',
+          result:             row.result,
+          score:              row.score,
+          note:               row.note || '',
+          tournament_id:      t.id,
+          created_at:         row.created_at,
+        }));
+
+        const { error: gErr } = await supabase.from('games').insert(gameRows);
+        if (gErr) throw new Error(gErr.message);
+
+        totalGames += rows.length;
+        totalTournaments++;
+      } catch (e) { onError(`Torneo: ${e.message}`); }
+    }
+
+    onProgress(totalGames, totalTournaments);
+    await refetch();
+  };
+
+  const handleDeleteAll = async () => {
+    try {
+      const { error: gErr } = await supabase
+        .from('games')
+        .delete()
+        .eq('user_id', user.id);
+      if (gErr) throw new Error(gErr.message);
+
+      const { error: tErr } = await supabase
+        .from('tournaments')
+        .delete()
+        .eq('user_id', user.id);
+      if (tErr) throw new Error(tErr.message);
+
+      await refetch();
+      setShowDeleteConfirm(false);
+    } catch (e) {
+      alert('Error al borrar el historial: ' + e.message);
+    }
+  };
+
   return (
     <div className="page">
       {/* Header */}
@@ -65,9 +184,43 @@ const GameHistoryPage = () => {
           <h1 className="page-title">Historial de <span className="gradient-text">Partidas</span></h1>
           <p className="page-subtitle">Todas tus partidas registradas</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          + Añadir partida
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {games.length > 0 && (
+              <button
+                className="btn btn-ghost"
+                onClick={() => exportToCSV(filteredGames, tournamentMap)}
+                title="Exportar partidas filtradas a Excel/CSV"
+              >
+                ↓ Exportar
+              </button>
+            )}
+            <button
+              className="btn btn-ghost"
+              onClick={() => setShowImportModal(true)}
+              title="Importar partidas desde CSV"
+            >
+              ↑ Importar
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+              + Añadir partida
+            </button>
+          </div>
+          {games.length > 0 && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              style={{
+                background: 'none', border: 'none', color: 'rgba(224,85,85,0.45)',
+                fontSize: 11, cursor: 'pointer', padding: '0 2px',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-red)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(224,85,85,0.45)'}
+            >
+              🗑 Borrar historial
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats summary */}
@@ -157,6 +310,83 @@ const GameHistoryPage = () => {
             />
           </div>
         </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 2000,
+          background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24,
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #0f0a0a 0%, #1a0808 100%)',
+            border: '1px solid rgba(224,85,85,0.4)',
+            borderRadius: 16,
+            padding: '32px 28px',
+            maxWidth: 420,
+            width: '100%',
+            boxShadow: '0 0 0 1px rgba(224,85,85,0.15), 0 24px 64px rgba(224,85,85,0.2)',
+            position: 'relative',
+            textAlign: 'center',
+          }}>
+            {/* Top glow line */}
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+              background: 'linear-gradient(90deg, transparent, rgba(224,85,85,0.6), transparent)',
+              borderRadius: '16px 16px 0 0',
+            }} />
+
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#f87171', margin: '0 0 10px', letterSpacing: '-0.03em' }}>
+              ¿Borrar todo el historial?
+            </h2>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 8px', lineHeight: 1.6 }}>
+              Se eliminarán <strong style={{ color: 'var(--text-primary)' }}>{games.length} partidas</strong> de forma permanente.
+            </p>
+            <p style={{ fontSize: 12, color: 'rgba(224,85,85,0.7)', margin: '0 0 28px' }}>
+              Esta acción no se puede deshacer.
+            </p>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{ minWidth: 110 }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAll}
+                style={{
+                  minWidth: 110,
+                  padding: '8px 20px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(224,85,85,0.5)',
+                  background: 'rgba(224,85,85,0.15)',
+                  color: '#f87171',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(224,85,85,0.3)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(224,85,85,0.15)'; }}
+              >
+                Sí, borrar todo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImportModal && (
+        <ImportGamesModal
+          onClose={() => { setShowImportModal(false); }}
+          onImport={handleImport}
+        />
       )}
 
       {showAddModal && (
