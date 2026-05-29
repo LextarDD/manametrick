@@ -893,4 +893,14 @@ html, body, #root {
     left: 0 !important;
     padding: 16px 12px;
   }
+
+  /* Botón toggle: en móvil va abajo para ser accesible al hacer scroll */
+  .sidebar-toggle {
+    top: auto;
+    bottom: 20px;
+    left: 182px;
+  }
+  .sidebar-toggle--collapsed {
+    left: 14px;
+  }
 }

@@ -12,6 +12,8 @@ const getCell = (winrate) => {
   return            { bg: 'rgba(248,113,113,0.15)',  text: '#f87171', border: 'rgba(248,113,113,0.35)' };
 };
 
+const STICKY_BG = '#0e1420';
+
 const MatchupMatrix = ({ matrix, archetypeList, onSelectArchetype }) => {
   if (!matrix || !archetypeList || archetypeList.length === 0) {
     return (
@@ -32,23 +34,27 @@ const MatchupMatrix = ({ matrix, archetypeList, onSelectArchetype }) => {
   }
 
   return (
-    <div className="matchup-matrix-scroll" style={{
+    <div style={{
       borderRadius: '14px',
       background: 'linear-gradient(135deg, #0d1117 0%, #0f172a 50%, #0d1117 100%)',
       border: '1px solid rgba(99,102,241,0.2)',
       boxShadow: '0 0 0 1px rgba(99,102,241,0.08), 0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
       position: 'relative',
+      overflow: 'auto',
+      maxHeight: '80vh',
     }}>
       {/* Subtle corner glow */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
         background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.4), transparent)',
         pointerEvents: 'none',
+        zIndex: 40,
       }} />
 
-      <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'auto', position: 'relative' }}>
+      <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', position: 'relative' }}>
         <thead>
           <tr>
+            {/* Esquina: sticky top + left */}
             <th style={{
               padding: '14px 16px',
               fontSize: '10px',
@@ -59,10 +65,15 @@ const MatchupMatrix = ({ matrix, archetypeList, onSelectArchetype }) => {
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               borderBottom: '1px solid rgba(255,255,255,0.06)',
-              background: 'rgba(255,255,255,0.02)',
+              background: STICKY_BG,
+              position: 'sticky',
+              top: 0,
+              left: 0,
+              zIndex: 30,
             }}>
               ↓ Jugando / Contra →
             </th>
+            {/* Cabeceras de columna: sticky top */}
             {archetypeList.map(arch => (
               <th key={arch} style={{
                 padding: '8px 6px',
@@ -76,8 +87,11 @@ const MatchupMatrix = ({ matrix, archetypeList, onSelectArchetype }) => {
                 whiteSpace: 'nowrap',
                 borderBottom: '1px solid rgba(255,255,255,0.06)',
                 borderLeft: '1px solid rgba(255,255,255,0.04)',
-                background: 'rgba(255,255,255,0.02)',
+                background: STICKY_BG,
                 letterSpacing: '0.02em',
+                position: 'sticky',
+                top: 0,
+                zIndex: 20,
               }}>
                 {arch}
               </th>
@@ -89,7 +103,7 @@ const MatchupMatrix = ({ matrix, archetypeList, onSelectArchetype }) => {
             <tr key={playerArch} style={{
               borderBottom: rowIdx < archetypeList.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
             }}>
-              {/* Row header */}
+              {/* Cabecera de fila: sticky left */}
               <td style={{
                 padding: '10px 16px',
                 fontSize: '12px',
@@ -97,8 +111,11 @@ const MatchupMatrix = ({ matrix, archetypeList, onSelectArchetype }) => {
                 color: '#cbd5e1',
                 whiteSpace: 'nowrap',
                 borderRight: '1px solid rgba(255,255,255,0.06)',
-                background: 'rgba(255,255,255,0.02)',
+                background: STICKY_BG,
                 letterSpacing: '0.01em',
+                position: 'sticky',
+                left: 0,
+                zIndex: 10,
               }}>
                 {playerArch}
               </td>

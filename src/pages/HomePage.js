@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import useGlobalStats from '../hooks/useGlobalStats';
 import useArchetypes from '../hooks/useArchetypes';
+import MatchupMatrix from '../components/stats/MatchupMatrix';
 
 /* ── Type → visual mapping ── */
 const TYPE_META = {
@@ -28,28 +29,6 @@ const wrColor = (wr) => {
   return '#e05555';
 };
 
-const wrCellClass = (wr) => {
-  if (wr >= 55) return 'favorable';
-  if (wr >= 45) return 'neutral';
-  return 'unfavorable';
-};
-
-const colRgb = (color) => {
-  if (color === 'amber')  return '240,160,48';
-  if (color === 'green')  return '34,196,144';
-  if (color === 'red')    return '224,85,85';
-  if (color === 'blue')   return '91,175,255';
-  return '108,87,255';
-};
-
-const colText = (color) => {
-  if (color === 'amber')  return '#d4892a';
-  if (color === 'green')  return '#22c490';
-  if (color === 'red')    return '#c04040';
-  if (color === 'blue')   return '#4d9fd4';
-  return '#9d8bff';
-};
-
 const HomePage = () => {
   const { archetypeStats, matchupMatrix, loading, error } = useGlobalStats();
   const { archetypeMap } = useArchetypes();
@@ -60,13 +39,7 @@ const HomePage = () => {
     ? [...(archetypeStats || [])].sort((a, b) => b.winrate - a.winrate).slice(0, 8)
     : archetypeStats || [];
 
-  const allArchetypes = [...new Set((archetypeStats || []).map(a => a.archetype))];
-
-  const matrixLookup = {};
-  (matchupMatrix || []).forEach(row => {
-    if (!matrixLookup[row.player_archetype]) matrixLookup[row.player_archetype] = {};
-    matrixLookup[row.player_archetype][row.opponent_archetype] = row;
-  });
+  const archetypeList = (archetypeStats || []).map(a => a.archetype);
 
   const totalPartidas = (archetypeStats || []).reduce((sum, a) => sum + Number(a.total || 0), 0) / 2 | 0;
   const topWR = archetypeStats?.length ? Math.max(...archetypeStats.map(a => Number(a.winrate || 0))).toFixed(1) : '—';
@@ -221,7 +194,7 @@ const HomePage = () => {
           </div>
 
           {/* ── Matchup matrix ── */}
-          {allArchetypes.length > 0 && (
+          {archetypeList.length > 0 && (
             <div className="card" style={{ marginBottom: 20 }}>
               <div className="card-body">
                 <div className="card-title">
@@ -231,73 +204,10 @@ const HomePage = () => {
                 <p style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16 }}>
                   Winrate de cada arquetipo (filas) contra los rivales (columnas) · Mín. 3 partidas para mostrar dato
                 </p>
-
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ borderCollapse: 'separate', borderSpacing: 5, tableLayout: 'fixed', width: '100%' }}>
-                    <colgroup>
-                      <col style={{ width: 160 }} />
-                      {allArchetypes.map(a => <col key={a} />)}
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, textAlign: 'left', padding: '8px 10px' }}>↘ / contra →</th>
-                        {allArchetypes.map(a => {
-                          const m = getMeta(a, archetypeMap);
-                          const rgb = colRgb(m.color);
-                          return (
-                            <th key={a} style={{ padding: '8px 6px', background: `rgba(${rgb},.08)`, borderRadius: 10, border: `1px solid rgba(${rgb},.22)` }}>
-                              <div style={{ fontSize: 11, fontWeight: 600, textAlign: 'center', color: colText(m.color) }}>{a}</div>
-                              <div style={{ fontSize: 10, textAlign: 'center', marginTop: 2, color: 'var(--text-dim)' }}>{m.emoji} {m.badge}</div>
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allArchetypes.map(player => {
-                        const meta = getMeta(player, archetypeMap);
-                        return (
-                          <tr key={player}>
-                            <td style={{ padding: '10px 10px', background: 'rgba(255,255,255,.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,.05)' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                                <div className={`arch-dot ${meta.dot}`} style={{ width: 7, height: 7 }} />
-                                <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{player}</span>
-                              </div>
-                            </td>
-                            {allArchetypes.map(opp => {
-                              if (player === opp) return (
-                                <td key={opp} className="mx-cell neutral" style={{ borderRadius: 10 }}>
-                                  <span style={{ fontSize: 18, color: 'var(--text-dim)' }}>—</span>
-                                </td>
-                              );
-                              const cell = matrixLookup[player]?.[opp];
-                              if (!cell) return (
-                                <td key={opp} className="mx-cell neutral" style={{ borderRadius: 10 }}>
-                                  <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>?</span>
-                                </td>
-                              );
-                              const wr = Number(cell.winrate || 0);
-                              const cls = wrCellClass(wr);
-                              return (
-                                <td key={opp} className={`mx-cell ${cls}`} style={{ borderRadius: 10 }}>
-                                  <div className="mx-cell-pct">{wr}%</div>
-                                  <div className="mx-cell-score">{cell.wins} – {Number(cell.total) - Number(cell.wins)}</div>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Código de colores:</span>
-                  <span className="type-badge" style={{ background: 'rgba(6,80,55,.22)', color: '#4ddbb0', border: '1px solid rgba(34,196,144,.25)', borderRadius: 20, padding: '3px 12px', fontSize: 11 }}>&gt;55% Favorable</span>
-                  <span className="type-badge" style={{ background: 'rgba(25,25,50,.4)', color: '#5a5a80', border: '1px solid rgba(255,255,255,.08)', borderRadius: 20, padding: '3px 12px', fontSize: 11 }}>45–55% Paridad</span>
-                  <span className="type-badge" style={{ background: 'rgba(130,20,20,.22)', color: '#f09090', border: '1px solid rgba(224,85,85,.22)', borderRadius: 20, padding: '3px 12px', fontSize: 11 }}>&lt;45% Desfavorable</span>
-                </div>
+                <MatchupMatrix
+                  matrix={matchupMatrix}
+                  archetypeList={archetypeList}
+                />
               </div>
             </div>
           )}
