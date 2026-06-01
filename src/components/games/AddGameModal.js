@@ -17,21 +17,30 @@ const AddGameModal = ({ decks, archetypes, onSave, onClose }) => {
   const selectedDeck = decks.find(d => d.id === deckId);
   const isValid = deckId && opponentArchetype && result;
 
+  const RESULT_OPTIONS = [
+    { value: 'win',    label: '2-0', sub: 'Victoria', score: '2-0', dbResult: 'win'  },
+    { value: 'win21',  label: '2-1', sub: 'Victoria', score: '2-1', dbResult: 'win'  },
+    { value: 'draw11', label: '1-1', sub: 'Empate',   score: '1-1', dbResult: 'draw' },
+    { value: 'loss02', label: '0-2', sub: 'Derrota',  score: '0-2', dbResult: 'loss' },
+    { value: 'loss12', label: '1-2', sub: 'Derrota',  score: '1-2', dbResult: 'loss' },
+  ];
+
   const handleSubmit = async () => {
     if (!isValid) { setError('Completa todos los campos obligatorios.'); return; }
     setSaving(true);
     setError('');
     try {
+      const opt = RESULT_OPTIONS.find(o => o.value === result);
       await onSave({
-        deck_id: deckId,
-        deck_name: selectedDeck?.name || '',
-        archetype: selectedDeck?.archetype || '',
+        deck_id:            deckId,
+        deck_name:          selectedDeck?.name || '',
+        archetype:          selectedDeck?.archetype || '',
         opponent_archetype: opponentArchetype,
-        opponent_name: opponentName.trim() || '',
-        result: result.startsWith('win') ? 'win' : 'loss',
-        score: result === 'win' ? '2-0' : result === 'win21' ? '2-1' : result === 'loss' ? '0-2' : '1-2',
-        note: note.trim(),
-        tournament_id: null,
+        opponent_name:      opponentName.trim() || '',
+        result:             opt.dbResult,
+        score:              opt.score,
+        note:               note.trim(),
+        tournament_id:      null,
       });
       onClose();
     } catch (err) {
@@ -125,16 +134,24 @@ const AddGameModal = ({ decks, archetypes, onSave, onClose }) => {
           <div style={styles.field}>
             <label style={styles.label}>Resultado <span style={styles.required}>*</span></label>
             <div style={styles.resultRow}>
-              {[
-                { value: 'win',   label: '2-0', sub: 'Victoria' },
-                { value: 'win21', label: '2-1', sub: 'Victoria' },
-                { value: 'loss',  label: '0-2', sub: 'Derrota' },
-                { value: 'loss12',label: '1-2', sub: 'Derrota' },
-              ].map(({ value, label, sub }) => {
-                const isWin = value.startsWith('win');
+              {RESULT_OPTIONS.map(({ value, label, sub, dbResult }) => {
+                const isWin  = dbResult === 'win';
+                const isDraw = dbResult === 'draw';
                 const isActive = result === value;
+
+                const inactiveStyle = isWin  ? styles.resultWin
+                                    : isDraw ? styles.resultDraw
+                                    : styles.resultLoss;
+                const activeStyle   = isWin  ? styles.resultWinActive
+                                    : isDraw ? styles.resultDrawActive
+                                    : styles.resultLossActive;
+
                 return (
-                  <button key={value} style={{ ...styles.resultBtn, ...(isActive ? (isWin ? styles.resultWinActive : styles.resultLossActive) : (isWin ? styles.resultWin : styles.resultLoss)) }} onClick={() => setResult(value)}>
+                  <button
+                    key={value}
+                    style={{ ...styles.resultBtn, ...(isActive ? activeStyle : inactiveStyle) }}
+                    onClick={() => setResult(value)}
+                  >
                     <div style={{ fontSize: 18, fontWeight: 800 }}>{label}</div>
                     <div style={{ fontSize: 11, opacity: 0.8 }}>{sub}</div>
                   </button>
@@ -183,10 +200,12 @@ const styles = {
   input: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 14px', color: '#e8e0d0', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' },
   resultRow: { display: 'flex', gap: 8 },
   resultBtn: { flex: 1, padding: '10px 6px', borderRadius: 8, border: '2px solid transparent', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 },
-  resultWin:       { background: 'rgba(74,222,128,0.06)',  border: '2px solid rgba(74,222,128,0.2)',  color: 'rgba(74,222,128,0.5)' },
-  resultWinActive: { background: 'rgba(74,222,128,0.15)',  border: '2px solid #4ade80',               color: '#4ade80' },
-  resultLoss:       { background: 'rgba(248,113,113,0.06)', border: '2px solid rgba(248,113,113,0.2)', color: 'rgba(248,113,113,0.5)' },
-  resultLossActive: { background: 'rgba(248,113,113,0.15)', border: '2px solid #f87171',              color: '#f87171' },
+  resultWin:        { background: 'rgba(74,222,128,0.06)',   border: '2px solid rgba(74,222,128,0.2)',   color: 'rgba(74,222,128,0.5)'  },
+  resultWinActive:  { background: 'rgba(74,222,128,0.15)',   border: '2px solid #4ade80',                color: '#4ade80'               },
+  resultDraw:       { background: 'rgba(59,130,246,0.06)',   border: '2px solid rgba(59,130,246,0.2)',   color: 'rgba(59,130,246,0.5)'  },
+  resultDrawActive: { background: 'rgba(59,130,246,0.15)',   border: '2px solid #3b82f6',                color: '#3b82f6'               },
+  resultLoss:       { background: 'rgba(248,113,113,0.06)',  border: '2px solid rgba(248,113,113,0.2)',  color: 'rgba(248,113,113,0.5)' },
+  resultLossActive: { background: 'rgba(248,113,113,0.15)',  border: '2px solid #f87171',                color: '#f87171'               },
   textarea: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 14px', color: '#e8e0d0', fontSize: 14, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, width: '100%', boxSizing: 'border-box' },
   charCount: { fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'right', marginTop: -4 },
   error: { background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#f87171' },
