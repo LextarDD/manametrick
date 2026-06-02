@@ -29,8 +29,8 @@ const NAV_ITEMS = [
   { to: '/',                icon: '🌐', label: 'Meta Global',   exact: true },
   { divider: true },
   { to: '/my-decks',        icon: '🃏', label: 'Mis mazos',     auth: true },
-  { to: '/my-games',        icon: '📋', label: 'Mis Partidas',  auth: true },
   { to: '/my-tournaments',  icon: '🏆', label: 'Mis Torneos',   auth: true },
+  { to: '/my-games',        icon: '📋', label: 'Mis Partidas',  auth: true },
   { to: '/my-matchup',      icon: '⚔',  label: 'Mi Meta',       auth: true },
 ];
 
