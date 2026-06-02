@@ -7,42 +7,18 @@ const TournamentHistory = ({ tournaments, games = [], onDelete, onEdit }) => {
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(1);
 
-  const roundScoreMap = {};
-  const gameScoreMap = {};
-  const tournamentRounds = {};
-
+  // Ahora cada game en BD = 1 ronda completa con result (win/loss/draw) y score
+  // Calculamos rondas directamente contando games por torneo
+  const statsById = {};
   games.forEach(g => {
     if (!g.tournament_id) return;
-    if (!gameScoreMap[g.tournament_id]) gameScoreMap[g.tournament_id] = { wins: 0, losses: 0 };
-    if (g.result === 'win') gameScoreMap[g.tournament_id].wins++;
-    else gameScoreMap[g.tournament_id].losses++;
-    if (!tournamentRounds[g.tournament_id]) tournamentRounds[g.tournament_id] = [];
-    tournamentRounds[g.tournament_id].push(g);
-  });
-
-  Object.entries(tournamentRounds).forEach(([tid, tGames]) => {
-    const roundMap = new Map();
-    [...tGames]
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-      .forEach(g => {
-        const baseKey = g.opponent_archetype || 'unknown';
-        let found = false;
-        for (const [key, results] of roundMap.entries()) {
-          if (key.startsWith(baseKey + '::') && results.length < 3) {
-            results.push(g.result); found = true; break;
-          }
-        }
-        if (!found) roundMap.set(`${baseKey}::${roundMap.size}`, [g.result]);
-      });
-
-    let roundWins = 0, roundLosses = 0;
-    roundMap.forEach(results => {
-      const w = results.filter(r => r === 'win').length;
-      const l = results.filter(r => r === 'loss').length;
-      if (w >= 2) roundWins++;
-      else if (l >= 2) roundLosses++;
-    });
-    roundScoreMap[tid] = { wins: roundWins, losses: roundLosses };
+    if (!statsById[g.tournament_id]) {
+      statsById[g.tournament_id] = { roundWins: 0, roundLosses: 0, roundDraws: 0 };
+    }
+    const s = statsById[g.tournament_id];
+    if (g.result === 'win')  s.roundWins++;
+    else if (g.result === 'loss') s.roundLosses++;
+    else if (g.result === 'draw') s.roundDraws++;
   });
 
   const handleConfirmDelete = async (id) => {
@@ -62,25 +38,29 @@ const TournamentHistory = ({ tournaments, games = [], onDelete, onEdit }) => {
     );
   }
 
-  // Pagination
   const totalPages = Math.ceil(tournaments.length / PAGE_SIZE);
   const paginated  = tournaments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
-      {/* List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: totalPages > 1 ? 16 : 0 }}>
         {paginated.map((t) => {
-          const rounds   = roundScoreMap[t.id] || { wins: 0, losses: 0 };
-          const games_   = gameScoreMap[t.id]  || { wins: 0, losses: 0 };
-          const totalRounds  = rounds.wins + rounds.losses;
+          const s = statsById[t.id] || { roundWins: 0, roundLosses: 0, roundDraws: 0 };
+          const totalRounds = s.roundWins + s.roundLosses + s.roundDraws;
           const isConfirming = confirmId === t.id;
 
-          const resultColor = rounds.wins > rounds.losses
+          const resultColor = s.roundWins > s.roundLosses
             ? '#22c55e'
-            : rounds.losses > rounds.wins
+            : s.roundLosses > s.roundWins
               ? '#ef4444'
-              : '#aaa';
+              : totalRounds > 0 ? '#3b82f6' : '#aaa';
+
+          // Score de rondas: W–L (–D si hay empates)
+          const roundScore = totalRounds > 0
+            ? s.roundDraws > 0
+              ? `${s.roundWins}–${s.roundLosses}–${s.roundDraws}`
+              : `${s.roundWins}–${s.roundLosses}`
+            : '—';
 
           return (
             <div
@@ -104,6 +84,15 @@ const TournamentHistory = ({ tournaments, games = [], onDelete, onEdit }) => {
                   <span style={{ fontSize: 12, color: '#888', background: 'rgba(255,255,255,0.05)', borderRadius: 4, padding: '2px 7px' }}>
                     {t.deck_name}
                   </span>
+                  {t.type === 'online' ? (
+                    <span style={{ fontSize: 11, color: '#a5b4fc', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 4, padding: '1px 6px' }}>
+                      🖥️ Online
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 4, padding: '1px 6px' }}>
+                      ⚔️ Físico
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -111,13 +100,7 @@ const TournamentHistory = ({ tournaments, games = [], onDelete, onEdit }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rondas</span>
                   <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: resultColor }}>
-                    {totalRounds > 0 ? `${rounds.wins}–${rounds.losses}` : '—'}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Partidas</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#94a3b8' }}>
-                    {games_.wins + games_.losses > 0 ? `${games_.wins}–${games_.losses}` : '—'}
+                    {roundScore}
                   </span>
                 </div>
               </div>
@@ -149,35 +132,13 @@ const TournamentHistory = ({ tournaments, games = [], onDelete, onEdit }) => {
         })}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            style={pageNavBtn(page === 1)}
-          >
-            ←
-          </button>
-
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={pageNavBtn(page === 1)}>←</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              style={pageNumBtn(p === page)}
-            >
-              {p}
-            </button>
+            <button key={p} onClick={() => setPage(p)} style={pageNumBtn(p === page)}>{p}</button>
           ))}
-
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            style={pageNavBtn(page === totalPages)}
-          >
-            →
-          </button>
-
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={pageNavBtn(page === totalPages)}>→</button>
           <span style={{ fontSize: 12, color: '#3a3a60', marginLeft: 8 }}>
             {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, tournaments.length)} de {tournaments.length}
           </span>
@@ -192,29 +153,16 @@ const iconBtnStyle = {
   cursor: 'pointer', fontSize: 15, padding: '2px 4px',
   borderRadius: 4, lineHeight: 1, transition: 'color 0.15s', flexShrink: 0,
 };
-
 const pageNavBtn = (disabled) => ({
-  background: 'transparent',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 6,
-  color: disabled ? '#2a2a48' : '#6a6a9a',
-  cursor: disabled ? 'default' : 'pointer',
-  fontSize: 14,
-  padding: '4px 10px',
-  transition: 'all 0.15s',
+  background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6,
+  color: disabled ? '#2a2a48' : '#6a6a9a', cursor: disabled ? 'default' : 'pointer',
+  fontSize: 14, padding: '4px 10px', transition: 'all 0.15s',
 });
-
 const pageNumBtn = (active) => ({
   background: active ? 'rgba(108,87,255,0.2)' : 'transparent',
   border: `1px solid ${active ? 'rgba(108,87,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
-  borderRadius: 6,
-  color: active ? '#a89fff' : '#6a6a9a',
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: active ? 600 : 400,
-  padding: '4px 10px',
-  minWidth: 32,
-  transition: 'all 0.15s',
+  borderRadius: 6, color: active ? '#a89fff' : '#6a6a9a', cursor: 'pointer',
+  fontSize: 13, fontWeight: active ? 600 : 400, padding: '4px 10px', minWidth: 32, transition: 'all 0.15s',
 });
 
 export default TournamentHistory;

@@ -8,15 +8,13 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
   const wins   = results.filter(r => r === 'win').length;
   const losses = results.filter(r => r === 'loss').length;
 
-  // W+L sin desempate = empate implícito (físico). Empate explícito = círculo 'draw'.
-  const hasExplicitDraw = results.some(r => r === 'draw');
-  const hasImplicitDraw = wins === 1 && losses === 1 && !results[2]; // W+L sin tercer círculo
+  // Empate = W+L sin tercer círculo (implícito, nunca se elige manualmente)
+  const hasImplicitDraw = wins === 1 && losses === 1 && !results[2];
 
   const outcome =
-    wins >= 2              ? 'win'  :
-    losses >= 2            ? 'loss' :
-    hasExplicitDraw        ? 'draw' :
-    hasImplicitDraw        ? 'draw' :
+    wins >= 2         ? 'win'  :
+    losses >= 2       ? 'loss' :
+    hasImplicitDraw   ? 'draw' :
     null;
 
   const handleResultClick = (index) => {
@@ -25,23 +23,16 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
     if (index === 2) {
       const first  = newResults[0];
       const second = newResults[1];
-      const needsDecider = first && second && first !== second && first !== 'draw' && second !== 'draw';
-
-      if (allowDraw) {
-        // Físico: tercer hueco solo si primer y segundo son distintos W/L → toggle draw
-        if (!needsDecider) return;
-        newResults[2] = newResults[2] === 'draw' ? null : 'draw';
-      } else {
-        // Online: desempate normal W → L → null
-        if (!needsDecider) return;
-        const cur = newResults[2];
-        newResults[2] = cur === null ? 'win' : cur === 'win' ? 'loss' : null;
-      }
+      // El tercer círculo solo se activa cuando hay 1-1 (W+L o L+W)
+      const needsDecider = first && second && first !== second;
+      if (!needsDecider) return;
+      // Siempre W → L → null, igual en físico y online
+      const cur = newResults[2];
+      newResults[2] = cur === null ? 'win' : cur === 'win' ? 'loss' : null;
     } else {
-      // Círculos 0 y 1: ciclo null → win → loss → null
       const cur = newResults[index];
       newResults[index] = cur === null ? 'win' : cur === 'win' ? 'loss' : null;
-      // Resetear tercer círculo si se cambia alguno de los dos primeros
+      // Resetear tercer círculo si cambian los dos primeros
       newResults[2] = null;
     }
 
@@ -51,7 +42,7 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
   const getCircleStyle = (result, index) => {
     const first  = results[0];
     const second = results[1];
-    const needsDecider = first && second && first !== second && first !== 'draw' && second !== 'draw';
+    const needsDecider = first && second && first !== second;
     const isLocked = index === 2 && !needsDecider;
 
     const base = {
@@ -65,14 +56,12 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
 
     if (result === 'win')  return { ...base, background: '#22c55e', borderColor: '#16a34a', color: '#fff' };
     if (result === 'loss') return { ...base, background: '#ef4444', borderColor: '#dc2626', color: '#fff' };
-    if (result === 'draw') return { ...base, background: '#3b82f6', borderColor: '#2563eb', color: '#fff' };
     return { ...base, background: 'transparent', borderColor: isLocked ? '#333' : '#555', color: '#888' };
   };
 
   const getLabel = (r) => {
     if (r === 'win')  return 'W';
     if (r === 'loss') return 'L';
-    if (r === 'draw') return '=';
     return '·';
   };
 
@@ -88,13 +77,10 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
     : '1px solid rgba(255,255,255,0.08)';
   const outcomeIcon   = outcome === 'win' ? '✓' : outcome === 'loss' ? '✗' : '=';
 
-  // Tooltip tercer círculo
   const tiedFirstTwo = results[0] && results[1] && results[0] !== results[1];
   const thirdTitle = !tiedFirstTwo
-    ? 'Se activa con 1-1'
-    : allowDraw
-    ? 'Clic para marcar empate explícito'
-    : 'Clic para desempate';
+    ? 'Se activa con 1-1 para desempate'
+    : 'Clic para desempate (W/L)';
 
   return (
     <div style={{
@@ -104,7 +90,6 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
       transition: 'all 0.15s',
     }}>
 
-      {/* Fila principal */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ color: '#888', fontSize: 13, minWidth: 60, flexShrink: 0 }}>
           Ronda {roundIndex + 1}
@@ -136,7 +121,7 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
           ))}
         </div>
 
-        {/* Icono de resultado: para empate implícito (W+L) también mostramos = */}
+        {/* Icono de resultado en esquina — '=' solo cuando hay empate implícito */}
         {outcome && (
           <span style={{ fontSize: 13, fontWeight: 700, flexShrink: 0, color: outcomeColor }}>
             {outcomeIcon}
@@ -144,7 +129,13 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
         )}
       </div>
 
-      {/* Nombre del oponente */}
+      {/* Indicador visual de empate implícito bajo los círculos */}
+      {hasImplicitDraw && allowDraw && (
+        <div style={{ paddingLeft: 72, fontSize: 11, color: '#3b82f6', opacity: 0.8 }}>
+          Empate detectado (1-1) — pulsa el tercer círculo para desempatar
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 68 }}>
         <input
           type="text"
@@ -177,7 +168,6 @@ const TournamentRound = ({ roundIndex, round, archetypes, onChange, allowDraw })
         </button>
       </div>
 
-      {/* Campo de nota desplegable */}
       {noteOpen && (
         <div style={{ paddingLeft: 68 }}>
           <textarea

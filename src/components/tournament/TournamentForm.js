@@ -6,25 +6,36 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
   const isEditing = !!initialData;
   const bestOf = 3;
 
+  // Reconstruye los círculos de una ronda a partir del score guardado en BD.
+  // Ahora cada game = 1 ronda completa con result (win/loss/draw) y score (2-0, 2-1, 1-2, 0-2, 1-1)
+  const scoreToCircles = (result, score) => {
+    if (result === 'win') {
+      if (score === '2-0') return ['win', 'win', null];
+      if (score === '2-1') return ['win', 'loss', 'win'];
+      return ['win', 'win', null]; // fallback
+    }
+    if (result === 'loss') {
+      if (score === '0-2') return ['loss', 'loss', null];
+      if (score === '1-2') return ['win', 'loss', 'loss'];
+      return ['loss', 'loss', null]; // fallback
+    }
+    if (result === 'draw') {
+      return ['win', 'loss', null]; // 1-1
+    }
+    return [null, null, null];
+  };
+
   const buildRoundsFromGames = (games) => {
     if (!games || games.length === 0) return buildEmptyRounds(4);
-    const roundMap = new Map();
-    games.forEach(g => {
-      if (!roundMap.has(g.opponent_archetype)) {
-        roundMap.set(g.opponent_archetype, {
-          results: [],
-          opponentName: g.opponent_name || '',
-          note: g.note || '',
-        });
-      }
-      roundMap.get(g.opponent_archetype).results.push(g.result);
-    });
-    return Array.from(roundMap.entries()).map(([arch, data]) => ({
-      opponentArchetype: arch,
-      opponentName: data.opponentName,
-      note: data.note,
-      results: Array.from({ length: bestOf }, (_, i) => data.results[i] || null),
-    }));
+    // Cada game es una ronda completa — orden por created_at
+    return [...games]
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      .map(g => ({
+        opponentArchetype: g.opponent_archetype || '',
+        opponentName:      g.opponent_name || '',
+        note:              g.note || '',
+        results:           scoreToCircles(g.result, g.score),
+      }));
   };
 
   function buildEmptyRounds(n) {
@@ -64,18 +75,16 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
     setRounds(prev => prev.map((r, i) => (i === index ? updated : r)));
   };
 
-  // Misma lógica que en useTournaments._getRoundOutcome
   const getRoundOutcome = (results) => {
     const wins   = results.filter(r => r === 'win').length;
     const losses = results.filter(r => r === 'loss').length;
     if (wins >= 2)   return 'win';
     if (losses >= 2) return 'loss';
     if (results.some(r => r === 'draw')) return 'draw';
-    if (wins === 1 && losses === 1) return 'draw'; // W+L sin desempate = empate
+    if (wins === 1 && losses === 1) return 'draw';
     return null;
   };
 
-  // Una ronda es "empate" si tiene W+L sin resolver O tiene círculo 'draw' explícito
   const roundIsDrawn = (r) => {
     const results = r.results || [];
     const wins   = results.filter(x => x === 'win').length;
@@ -86,7 +95,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
   const handleSave = async () => {
     if (!selectedDeckId) { setError('Selecciona un mazo.'); return; }
 
-    // Validación online: no se permiten empates (ni W+L sin desempate, ni círculo =)
     if (tournamentType === 'online') {
       const hasDrawRound = rounds.some(r => roundIsDrawn(r));
       if (hasDrawRound) {
@@ -135,7 +143,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
         width: '100%', maxWidth: 560, maxHeight: '90vh',
         overflowY: 'auto', boxSizing: 'border-box',
       }}>
-        {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ margin: 0, color: '#f0f0f0', fontSize: 20, fontWeight: 700 }}>
             {isEditing ? 'Editar torneo' : 'Registrar torneo'}
@@ -156,7 +163,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
           )}
         </div>
 
-        {/* Tournament name */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}>Nombre del torneo (opcional)</label>
           <input
@@ -168,7 +174,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
           />
         </div>
 
-        {/* Deck selector */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}>Mazo *</label>
           <select value={selectedDeckId} onChange={e => setSelectedDeckId(e.target.value)} style={inputStyle}>
@@ -181,7 +186,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
           </select>
         </div>
 
-        {/* Tournament type */}
         <div style={{ marginBottom: 20 }}>
           <label style={labelStyle}>Tipo de torneo</label>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -220,7 +224,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
           )}
         </div>
 
-        {/* Rounds header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <label style={{ ...labelStyle, margin: 0 }}>
             Rondas{' '}
@@ -241,7 +244,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
           W = Victoria · L = Derrota{allowDraw ? ' · = Empate' : ''} · Las rondas sin completar no se guardan como partida.
         </p>
 
-        {/* Rounds */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
           {rounds.map((round, i) => (
             <TournamentRound
@@ -256,7 +258,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
           ))}
         </div>
 
-        {/* Actions */}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={cancelBtnStyle}>Cancelar</button>
           <button onClick={handleSave} disabled={saving} style={saveBtnStyle}>
@@ -264,7 +265,6 @@ const TournamentForm = ({ decks, archetypes, onSave, onClose, initialData }) => 
           </button>
         </div>
 
-        {/* Error debajo del botón guardar */}
         {error && (
           <p style={{
             color: '#f87171', fontSize: 13, marginTop: 12,

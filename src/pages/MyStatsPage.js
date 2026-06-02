@@ -10,7 +10,7 @@ import TournamentHistory from '../components/tournament/TournamentHistory';
 
 export default function MyStatsPage() {
   const { user } = useAuth();
-  const { games, loading: gamesLoading, error: gamesError } = useGames(user?.id);
+  const { games, loading: gamesLoading, error: gamesError, refetch: refetchGames } = useGames(user?.id);
   const { decks, loading: decksLoading } = useDecks(user?.id);
   const { tournaments, loading: tournamentsLoading, addTournament, updateTournament, deleteTournament } = useTournaments(user?.id);
   const { archetypes } = useArchetypes();
@@ -20,13 +20,30 @@ export default function MyStatsPage() {
   if (!user) return null;
   const isLoading = gamesLoading || decksLoading || tournamentsLoading;
 
-  const handleEditTournament = (tournament) => {
-    const tournamentGames = games.filter(g => g.tournament_id === tournament.id);
-    setEditingTournament({ tournament, games: tournamentGames });
+  const handleEditTournament = async (tournament) => {
+    // Refrescar games antes de abrir el formulario para tener datos actualizados
+    await refetchGames();
+    // Leer los games actualizados directamente de Supabase para esta edición
+    const { data: freshGames } = await import('../lib/supabaseClient').then(({ supabase }) =>
+      supabase
+        .from('games')
+        .select('*')
+        .eq('tournament_id', tournament.id)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+    );
+    setEditingTournament({ tournament, games: freshGames || [] });
+  };
+
+  const handleSaveNew = async (data) => {
+    await addTournament(data);
+    await refetchGames();
+    setShowTournamentForm(false);
   };
 
   const handleSaveEdit = async (tournamentData) => {
     await updateTournament(editingTournament.tournament.id, tournamentData);
+    await refetchGames();
     setEditingTournament(null);
   };
 
@@ -101,10 +118,7 @@ export default function MyStatsPage() {
         <TournamentForm
           decks={decks}
           archetypes={archetypes}
-          onSave={async (data) => {
-            await addTournament(data);
-            setShowTournamentForm(false);
-          }}
+          onSave={handleSaveNew}
           onClose={() => setShowTournamentForm(false)}
         />
       )}

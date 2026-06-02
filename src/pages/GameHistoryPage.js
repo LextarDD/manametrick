@@ -73,21 +73,28 @@ const GameHistoryPage = () => {
   const stats = useMemo(() => {
     const roundWins   = filteredGames.filter(g => g.result === 'win').length;
     const roundLosses = filteredGames.filter(g => g.result === 'loss').length;
-    const total = roundWins + roundLosses;
-    const roundWR = total > 0 ? Math.round(roundWins / total * 100) : null;
+    const roundDraws  = filteredGames.filter(g => g.result === 'draw').length;
+    const total = roundWins + roundLosses + roundDraws;
+    // Winrate de rondas: empates no cuentan como victoria ni derrota
+    const roundWR = (roundWins + roundLosses) > 0
+      ? Math.round(roundWins / (roundWins + roundLosses) * 100)
+      : null;
 
-    let gW = 0, gL = 0;
+    // Partidas individuales: derivadas del score de cada ronda
+    // 2-0 = 2 games (2W 0L), 2-1 = 3 games (2W 1L), 0-2 = 2 games (0W 2L), 1-2 = 3 games (1W 2L), 1-1 = 2 games (1W 1L)
+    let gW = 0, gL = 0, gD = 0;
     filteredGames.forEach(g => {
-      if      (g.score === '2-0') { gW += 2; }
-      else if (g.score === '2-1') { gW += 2; gL += 1; }
-      else if (g.score === '0-2') { gL += 2; }
-      else if (g.score === '1-2') { gW += 1; gL += 2; }
-      else { g.result === 'win' ? (gW += 2) : (gL += 2); }
+      const score = g.score || (g.result === 'win' ? '2-0' : g.result === 'draw' ? '1-1' : '0-2');
+      if      (score === '2-0') { gW += 2; }
+      else if (score === '2-1') { gW += 2; gL += 1; }
+      else if (score === '0-2') { gL += 2; }
+      else if (score === '1-2') { gW += 1; gL += 2; }
+      else if (score === '1-1') { gW += 1; gL += 1; }
     });
     const totalG = gW + gL;
     const gameWR = totalG > 0 ? Math.round(gW / totalG * 100) : null;
 
-    return { roundWins, roundLosses, total, roundWR, gW, gL, gameWR };
+    return { roundWins, roundLosses, roundDraws, total, roundWR, gW, gL, gameWR };
   }, [filteredGames]);
 
   const handleSave = async (gameData) => {
@@ -196,7 +203,7 @@ const GameHistoryPage = () => {
       <div className="page-header anim-fade-up">
         <div>
           <h1 className="page-title">Historial de <span className="gradient-text">Partidas</span></h1>
-          <p className="page-subtitle">Todas tus partidas registradas</p>
+          <p className="page-subtitle">Todas tus rondas registradas</p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -217,7 +224,7 @@ const GameHistoryPage = () => {
               ↑ Importar
             </button>
             <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-              + Añadir partida
+              + Añadir ronda
             </button>
           </div>
           {games.length > 0 && (
@@ -247,16 +254,22 @@ const GameHistoryPage = () => {
                 <div className="card-title-icon purple">🎯</div>
                 <span className="card-title-text" style={{ fontSize: 12 }}>Rondas</span>
               </div>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                <StatNum value={stats.total}      label="Jugadas"  color="var(--text-primary)" />
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
+                <StatNum value={stats.total}       label="Jugadas"  color="var(--text-primary)" small />
                 <Divider />
-                <StatNum value={stats.roundWins}  label="Ganadas"  color="var(--accent-green)" />
+                <StatNum value={stats.roundWins}   label="Ganadas"  color="var(--accent-green)" small />
                 <Divider />
-                <StatNum value={stats.roundLosses}label="Perdidas" color="var(--accent-red)" />
+                <StatNum value={stats.roundLosses} label="Perdidas" color="var(--accent-red)" small />
+                {stats.roundDraws > 0 && (
+                  <>
+                    <Divider />
+                    <StatNum value={stats.roundDraws} label="Empates" color="#3b82f6" small />
+                  </>
+                )}
                 {stats.roundWR !== null && (
                   <>
                     <Divider />
-                    <StatNum value={`${stats.roundWR}%`} label="Winrate" color={stats.roundWR >= 50 ? 'var(--accent-green)' : 'var(--accent-red)'} />
+                    <StatNum value={`${stats.roundWR}%`} label="Winrate" color={stats.roundWR >= 50 ? 'var(--accent-green)' : 'var(--accent-red)'} small />
                   </>
                 )}
               </div>
@@ -270,14 +283,16 @@ const GameHistoryPage = () => {
                 <div className="card-title-icon blue">⚔</div>
                 <span className="card-title-text" style={{ fontSize: 12 }}>Partidas individuales</span>
               </div>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                <StatNum value={stats.gW} label="Ganadas"  color="var(--accent-green)" />
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
+                <StatNum value={stats.gW + stats.gL} label="Jugadas"  color="var(--text-primary)" small />
                 <Divider />
-                <StatNum value={stats.gL} label="Perdidas" color="var(--accent-red)" />
+                <StatNum value={stats.gW} label="Ganadas"  color="var(--accent-green)" small />
+                <Divider />
+                <StatNum value={stats.gL} label="Perdidas" color="var(--accent-red)" small />
                 {stats.gameWR !== null && (
                   <>
                     <Divider />
-                    <StatNum value={`${stats.gameWR}%`} label="Winrate" color={stats.gameWR >= 50 ? 'var(--accent-green)' : 'var(--accent-red)'} />
+                    <StatNum value={`${stats.gameWR}%`} label="Winrate" color={stats.gameWR >= 50 ? 'var(--accent-green)' : 'var(--accent-red)'} small />
                   </>
                 )}
               </div>
@@ -313,7 +328,7 @@ const GameHistoryPage = () => {
             <div className="card-title">
               <div className="card-title-icon purple">📋</div>
               <span className="card-title-text">
-                {filteredGames.length} partida{filteredGames.length !== 1 ? 's' : ''}
+                {filteredGames.length} ronda{filteredGames.length !== 1 ? 's' : ''}
                 {filteredGames.length !== games.length && ` (filtradas de ${games.length})`}
               </span>
             </div>
@@ -321,6 +336,7 @@ const GameHistoryPage = () => {
               games={filteredGames}
               decks={decks}
               onDelete={deleteGame}
+              tournaments={tournaments}
             />
           </div>
         </div>
@@ -415,10 +431,10 @@ const GameHistoryPage = () => {
   );
 };
 
-const StatNum = ({ value, label, color }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 56 }}>
-    <span style={{ fontSize: 22, fontWeight: 700, color, lineHeight: 1, letterSpacing: '-.03em' }}>{value}</span>
-    <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--text-muted)' }}>{label}</span>
+const StatNum = ({ value, label, color, small }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: small ? 40 : 56 }}>
+    <span style={{ fontSize: small ? 20 : 22, fontWeight: 700, color, lineHeight: 1, letterSpacing: '-.03em' }}>{value}</span>
+    <span style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>{label}</span>
   </div>
 );
 

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import useGlobalStats from '../hooks/useGlobalStats';
 import useArchetypes from '../hooks/useArchetypes';
 import MatchupMatrix from '../components/stats/MatchupMatrix';
+import GlobalMatchupDetails from '../components/stats/GlobalMatchupDetails';
 
-/* ── Type → visual mapping ── */
 const TYPE_META = {
   aggro:    { color: 'amber',  dot: 'amber',  emoji: '⚔' },
   burn:     { color: 'red',    dot: 'red',    emoji: '🔥' },
@@ -18,6 +18,20 @@ const TYPE_META = {
   ramp:     { color: 'green',  dot: 'green',  emoji: '🌿' },
 };
 
+// Color de fondo/borde por tipo para los chips
+const TYPE_CHIP = {
+  aggro:    { bg: 'rgba(251,146,60,0.12)',  border: 'rgba(251,146,60,0.35)',  text: '#fb923c' },
+  burn:     { bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.35)', text: '#f87171' },
+  tribal:   { bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.35)',   text: '#4ade80' },
+  combo:    { bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.35)',  text: '#60a5fa' },
+  control:  { bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.35)', text: '#a78bfa' },
+  midrange: { bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.35)', text: '#a78bfa' },
+  tempo:    { bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.35)',  text: '#60a5fa' },
+  prison:   { bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.35)', text: '#f87171' },
+  storm:    { bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.35)',  text: '#60a5fa' },
+  ramp:     { bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.35)',   text: '#4ade80' },
+};
+
 const getMeta = (name, archetypeMap) => {
   const type = archetypeMap[name] || 'midrange';
   return { ...(TYPE_META[type] || TYPE_META.midrange), badge: type };
@@ -29,20 +43,60 @@ const wrColor = (wr) => {
   return '#e05555';
 };
 
+const ALL_TYPES = Object.keys(TYPE_META);
+
 const HomePage = () => {
   const { archetypeStats, matchupMatrix, loading, error } = useGlobalStats();
   const { archetypeMap } = useArchetypes();
   const [filter, setFilter] = useState('all');
   const [tableOpen, setTableOpen] = useState(false);
+  const [selectedMatchup, setSelectedMatchup] = useState(null);
+  const [activeTypes, setActiveTypes] = useState(new Set(ALL_TYPES));
+  const [minRounds, setMinRounds] = useState(null); // null = sin inicializar
+
+  // Calcular la media de rondas para el valor inicial
+  const avgRounds = useMemo(() => {
+    if (!archetypeStats || archetypeStats.length === 0) return 1;
+    const avg = archetypeStats.reduce((s, a) => s + Number(a.total || 0), 0) / archetypeStats.length;
+    return Math.max(1, Math.round(avg));
+  }, [archetypeStats]);
+
+  // Inicializar minRounds con la media cuando llegan los datos
+  const effectiveMin = minRounds === null ? avgRounds : minRounds;
+
+  const toggleType = (type) => {
+    setActiveTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) { if (next.size > 1) next.delete(type); }
+      else next.add(type);
+      return next;
+    });
+  };
+
+  const allTypesActive = activeTypes.size === ALL_TYPES.length;
+  const toggleAll = () => {
+    if (allTypesActive) setActiveTypes(new Set([ALL_TYPES[0]]));
+    else setActiveTypes(new Set(ALL_TYPES));
+  };
+
+  // Lista filtrada por tipo y mínimo de rondas
+  const filteredStats = useMemo(() => {
+    if (!archetypeStats) return [];
+    return archetypeStats.filter(a => {
+      const type = archetypeMap[a.archetype] || 'midrange';
+      return activeTypes.has(type) && Number(a.total || 0) >= effectiveMin;
+    });
+  }, [archetypeStats, archetypeMap, activeTypes, effectiveMin]);
 
   const displayed = filter === 'top8'
-    ? [...(archetypeStats || [])].sort((a, b) => b.winrate - a.winrate).slice(0, 8)
-    : archetypeStats || [];
+    ? [...filteredStats].sort((a, b) => b.winrate - a.winrate).slice(0, 8)
+    : [...filteredStats].sort((a, b) => b.winrate - a.winrate);
 
   const archetypeList = (archetypeStats || []).map(a => a.archetype);
-
   const totalPartidas = (archetypeStats || []).reduce((sum, a) => sum + Number(a.total || 0), 0) / 2 | 0;
-  const topWR = archetypeStats?.length ? Math.max(...archetypeStats.map(a => Number(a.winrate || 0))).toFixed(1) : '—';
+  const topWR = displayed.length ? Math.max(...displayed.map(a => Number(a.winrate || 0))).toFixed(1) : '—';
+
+  const stepMin = (delta) => setMinRounds(Math.max(1, effectiveMin + delta));
 
   return (
     <div className="page-wide">
@@ -90,6 +144,7 @@ const HomePage = () => {
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-body">
 
+              {/* Cabecera colapsable */}
               <div
                 onClick={() => setTableOpen(o => !o)}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
@@ -104,8 +159,7 @@ const HomePage = () => {
                         return (
                           <span key={row.archetype} style={{
                             fontSize: 11, padding: '2px 8px', borderRadius: 20,
-                            background: 'rgba(255,255,255,.04)',
-                            border: '1px solid rgba(255,255,255,.07)',
+                            background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)',
                             color: wrColor(wr), fontWeight: 600, whiteSpace: 'nowrap',
                           }}>
                             {row.archetype.split(' ')[0]} {wr}%
@@ -120,7 +174,6 @@ const HomePage = () => {
                     </div>
                   )}
                 </div>
-
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
                   {tableOpen && (
                     <div className="toggle-chips" onClick={e => e.stopPropagation()}>
@@ -130,20 +183,96 @@ const HomePage = () => {
                   )}
                   <div style={{
                     width: 26, height: 26, borderRadius: 7,
-                    background: 'rgba(108,87,255,.12)',
-                    border: '1px solid rgba(108,87,255,.25)',
+                    background: 'rgba(108,87,255,.12)', border: '1px solid rgba(108,87,255,.25)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: '#9d8bff', fontSize: 14, lineHeight: 1,
                     transition: 'transform .25s',
                     transform: tableOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  }}>
-                    ▾
-                  </div>
+                  }}>▾</div>
                 </div>
               </div>
 
               {tableOpen && (
-                <div style={{ marginTop: 16 }}>
+                <div style={{ marginTop: 14 }}>
+
+                  {/* ── Barra de filtros ── */}
+                  <div onClick={e => e.stopPropagation()} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                    padding: '10px 12px', marginBottom: 14,
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    borderRadius: 10,
+                  }}>
+                    {/* Chips de tipo */}
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', flex: 1 }}>
+                      {/* Botón "Todos" */}
+                      <button
+                        onClick={toggleAll}
+                        style={{
+                          padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                          cursor: 'pointer', border: '1px solid',
+                          transition: 'all 0.15s',
+                          background: allTypesActive ? 'rgba(108,87,255,0.18)' : 'rgba(255,255,255,0.04)',
+                          borderColor: allTypesActive ? 'rgba(108,87,255,0.5)' : 'rgba(255,255,255,0.1)',
+                          color: allTypesActive ? '#a78bfa' : '#555',
+                        }}
+                      >
+                        Todos
+                      </button>
+                      {ALL_TYPES.map(type => {
+                        const active = activeTypes.has(type);
+                        const chip = TYPE_CHIP[type] || TYPE_CHIP.midrange;
+                        const meta = TYPE_META[type];
+                        return (
+                          <button
+                            key={type}
+                            onClick={() => toggleType(type)}
+                            style={{
+                              padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                              cursor: 'pointer', border: '1px solid', transition: 'all 0.15s',
+                              background: active ? chip.bg : 'rgba(255,255,255,0.03)',
+                              borderColor: active ? chip.border : 'rgba(255,255,255,0.08)',
+                              color: active ? chip.text : '#444',
+                              opacity: active ? 1 : 0.5,
+                            }}
+                          >
+                            {meta.emoji} {type}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Mínimo de rondas */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>Mín. rondas</span>
+                      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, overflow: 'hidden' }}>
+                        <button
+                          onClick={() => stepMin(-1)}
+                          style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.04)', border: 'none', color: '#888', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+                        >−</button>
+                        <span style={{
+                          padding: '3px 10px', fontSize: 12, fontWeight: 700,
+                          color: '#c8c0ff', background: 'rgba(108,87,255,0.1)',
+                          minWidth: 28, textAlign: 'center',
+                        }}>
+                          {effectiveMin}
+                        </span>
+                        <button
+                          onClick={() => stepMin(1)}
+                          style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.04)', border: 'none', color: '#888', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+                        >+</button>
+                      </div>
+                      {minRounds !== null && minRounds !== avgRounds && (
+                        <button
+                          onClick={() => setMinRounds(null)}
+                          title="Restablecer al valor por defecto"
+                          style={{ fontSize: 10, color: '#555', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
+                        >↺</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Tabla ── */}
                   <div className="mm-table-header" style={{ gridTemplateColumns: '22px minmax(0,1fr) 38px 38px 52px 64px minmax(0,120px)' }}>
                     <span>#</span>
                     <span>ARQUETIPO</span>
@@ -155,7 +284,7 @@ const HomePage = () => {
                   </div>
 
                   {displayed.length === 0 && (
-                    <div className="empty-state">No hay datos de arquetipos todavía.</div>
+                    <div className="empty-state">No hay arquetipos que cumplan los filtros.</div>
                   )}
 
                   {displayed.map((row, i) => {
@@ -207,11 +336,22 @@ const HomePage = () => {
                 <MatchupMatrix
                   matrix={matchupMatrix}
                   archetypeList={archetypeList}
+                  onSelectArchetype={(playerArch, oppArch) => setSelectedMatchup({ playerArch, oppArch })}
                 />
               </div>
             </div>
           )}
         </>
+      )}
+
+      {/* ── Modal matchup global ── */}
+      {selectedMatchup && (
+        <GlobalMatchupDetails
+          playerArch={selectedMatchup.playerArch}
+          oppArch={selectedMatchup.oppArch}
+          matchupMatrix={matchupMatrix}
+          onClose={() => setSelectedMatchup(null)}
+        />
       )}
     </div>
   );

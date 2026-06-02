@@ -5,14 +5,66 @@ const PAGE_SIZE = 10;
 const RESULTS = {
   win:  { label: 'Victoria', color: '#4ade80', bg: 'rgba(74,222,128,0.12)',  dot: '#4ade80' },
   loss: { label: 'Derrota',  color: '#f87171', bg: 'rgba(248,113,113,0.12)', dot: '#f87171' },
+  draw: { label: 'Empate',   color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  dot: '#3b82f6' },
 };
 
 const ARCH_COLOR = '#7dd3fc';
 
-const GameHistory = ({ games, decks, onDelete }) => {
+// Badge de origen: Torneo Físico / Torneo Online / Partida suelta
+const OriginBadge = ({ tournamentType }) => {
+  if (!tournamentType) {
+    // Partida suelta
+    return (
+      <span style={{
+        background: 'rgba(255,255,255,0.06)',
+        color: 'rgba(255,255,255,0.4)',
+        padding: '1px 7px', borderRadius: 10,
+        border: '1px solid rgba(255,255,255,0.1)',
+        fontWeight: 600, fontSize: 12,
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+      }}>
+        ⚔️ Partida suelta
+      </span>
+    );
+  }
+  if (tournamentType === 'online') {
+    return (
+      <span style={{
+        background: 'rgba(99,102,241,0.12)',
+        color: '#a5b4fc',
+        padding: '1px 7px', borderRadius: 10,
+        border: '1px solid rgba(99,102,241,0.3)',
+        fontWeight: 600, fontSize: 12,
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+      }}>
+        🖥️ Torneo Online
+      </span>
+    );
+  }
+  // physical (o cualquier otro valor = físico)
+  return (
+    <span style={{
+      background: 'rgba(251,191,36,0.12)',
+      color: '#fbbf24',
+      padding: '1px 7px', borderRadius: 10,
+      border: '1px solid rgba(251,191,36,0.25)',
+      fontWeight: 600, fontSize: 12,
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+    }}>
+      🏆 Torneo Físico
+    </span>
+  );
+};
+
+const GameHistory = ({ games, decks, onDelete, tournaments }) => {
   const [expandedNote, setExpandedNote] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [page, setPage] = useState(1);
+
+  // Mapa tournament_id → tournament para acceder al type
+  const tournamentById = Object.fromEntries(
+    (tournaments || []).map(t => [t.id, t])
+  );
 
   if (!games || games.length === 0) {
     return (
@@ -44,12 +96,16 @@ const GameHistory = ({ games, decks, onDelete }) => {
 
       <div style={styles.list}>
         {paginated.map((game) => {
-          const result = RESULTS[game.result] || RESULTS.loss;
+          const resultKey = game.result === 'draw' ? 'draw' : (game.result || 'loss');
+          const result = RESULTS[resultKey] || RESULTS.loss;
           const date = game.created_at
             ? new Date(game.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
             : '—';
 
           const isTournament = !!game.tournament_id;
+          const tournament = isTournament ? tournamentById[game.tournament_id] : null;
+          const tournamentType = tournament?.type || (isTournament ? 'physical' : null);
+
           const hasNote = game.note && game.note.trim().length > 0;
           const noteOpen = expandedNote === game.id;
           const myArchetype = game.archetype || null;
@@ -60,7 +116,7 @@ const GameHistory = ({ games, decks, onDelete }) => {
             <div key={game.id} style={styles.row}>
               <div style={{ ...styles.resultBadge, background: result.bg, borderColor: result.color + '40', color: result.color }}>
                 <span style={{ ...styles.resultDot, background: result.dot }} />
-                {game.score ? game.score : result.label}
+                {game.score ? game.score : (resultKey === "win" ? "2-0" : resultKey === "draw" ? "1-1" : "0-2")}
               </div>
 
               <div style={styles.info}>
@@ -78,13 +134,11 @@ const GameHistory = ({ games, decks, onDelete }) => {
                 <div style={styles.meta}>
                   <span style={styles.metaItem}>{date}</span>
                   {game.score && (
-                    <span style={{ ...styles.metaItem, color: game.result === 'win' ? 'rgba(74,222,128,0.6)' : 'rgba(248,113,113,0.6)' }}>
+                    <span style={{ ...styles.metaItem, color: resultKey === 'win' ? 'rgba(74,222,128,0.6)' : resultKey === 'draw' ? 'rgba(59,130,246,0.6)' : 'rgba(248,113,113,0.6)' }}>
                       <span style={styles.metaDot}>·</span> {result.label}
                     </span>
                   )}
-                  {isTournament && (
-                    <span style={{ ...styles.metaItem, ...styles.tournamentBadge }}>🏆 Torneo</span>
-                  )}
+                  <OriginBadge tournamentType={tournamentType} />
                 </div>
               </div>
 
@@ -121,28 +175,11 @@ const GameHistory = ({ games, decks, onDelete }) => {
       {/* Paginación */}
       {totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            style={pageNavBtn(page === 1)}
-          >
-            ←
-          </button>
-
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={pageNavBtn(page === 1)}>←</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-            <button key={p} onClick={() => setPage(p)} style={pageNumBtn(p === page)}>
-              {p}
-            </button>
+            <button key={p} onClick={() => setPage(p)} style={pageNumBtn(p === page)}>{p}</button>
           ))}
-
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            style={pageNavBtn(page === totalPages)}
-          >
-            →
-          </button>
-
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={pageNavBtn(page === totalPages)}>→</button>
           <span style={{ fontSize: 12, color: '#4a4a72', marginLeft: 8 }}>
             {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, games.length)} de {games.length}
           </span>
@@ -153,22 +190,16 @@ const GameHistory = ({ games, decks, onDelete }) => {
 };
 
 const pageNavBtn = (disabled) => ({
-  background: 'transparent',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 6,
-  color: disabled ? '#2a2a48' : '#6a6a9a',
-  cursor: disabled ? 'default' : 'pointer',
+  background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6,
+  color: disabled ? '#2a2a48' : '#6a6a9a', cursor: disabled ? 'default' : 'pointer',
   fontSize: 14, padding: '4px 10px', transition: 'all 0.15s',
 });
 
 const pageNumBtn = (active) => ({
   background: active ? 'rgba(108,87,255,0.2)' : 'transparent',
   border: `1px solid ${active ? 'rgba(108,87,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
-  borderRadius: 6,
-  color: active ? '#a89fff' : '#6a6a9a',
-  cursor: 'pointer',
-  fontSize: 13, fontWeight: active ? 600 : 400,
-  padding: '4px 10px', minWidth: 32, transition: 'all 0.15s',
+  borderRadius: 6, color: active ? '#a89fff' : '#6a6a9a', cursor: 'pointer',
+  fontSize: 13, fontWeight: active ? 600 : 400, padding: '4px 10px', minWidth: 32, transition: 'all 0.15s',
 });
 
 const styles = {
@@ -188,7 +219,6 @@ const styles = {
   meta: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   metaItem: { fontSize: 12, color: 'rgba(255,255,255,0.35)' },
   metaDot: { marginRight: 2 },
-  tournamentBadge: { background: 'rgba(251,191,36,0.12)', color: '#fbbf24', padding: '1px 7px', borderRadius: 10, border: '1px solid rgba(251,191,36,0.25)', fontWeight: 600 },
   noteBtn: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 14, lineHeight: 1, flexShrink: 0 },
   deleteArea: { flexShrink: 0 },
   deleteBtn: { background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 9px', color: 'rgba(255,255,255,0.25)', cursor: 'pointer', fontSize: 12, fontWeight: 700 },

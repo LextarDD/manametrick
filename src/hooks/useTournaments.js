@@ -19,23 +19,23 @@ const useTournaments = (userId) => {
 
   useEffect(() => { fetchTournaments(); }, [fetchTournaments]);
 
-  // Determina si una ronda está completa y cuál es su resultado.
-  // W+L o L+W sin tercer círculo = empate (draw) en físico.
-  // En online ese caso no debería llegar aquí (bloqueado en el form).
-  const _getRoundOutcome = (results) => {
+  // Determina el outcome de una ronda y su score para mostrar en historial.
+  // Devuelve { outcome, score } o null si la ronda está incompleta.
+  const _getRoundResult = (results) => {
     const wins   = results.filter(r => r === 'win').length;
     const losses = results.filter(r => r === 'loss').length;
 
-    if (wins >= 2)   return 'win';
-    if (losses >= 2) return 'loss';
+    if (wins >= 2 && losses === 0) return { outcome: 'win',  score: '2-0' };
+    if (wins >= 2 && losses === 1) return { outcome: 'win',  score: '2-1' };
+    if (losses >= 2 && wins === 0) return { outcome: 'loss', score: '0-2' };
+    if (losses >= 2 && wins === 1) return { outcome: 'loss', score: '1-2' };
 
-    // Empate explícito marcado con el tercer círculo
-    if (results.some(r => r === 'draw')) return 'draw';
+    // Empate explícito (círculo '=') o W+L sin desempate
+    if (results.some(r => r === 'draw') || (wins === 1 && losses === 1)) {
+      return { outcome: 'draw', score: '1-1' };
+    }
 
-    // W+L o L+W sin desempate → también es empate (ronda cerrada 1-1)
-    if (wins === 1 && losses === 1) return 'draw';
-
-    return null; // incompleta (solo 1 resultado, o ninguno)
+    return null; // incompleta
   };
 
   const _insertRoundGames = async ({ rounds, deckId, deckName, deckArchetype, tournamentId, tournamentType }) => {
@@ -45,31 +45,26 @@ const useTournaments = (userId) => {
     rounds.forEach(round => {
       if (!round.opponentArchetype) return;
 
-      const outcome = _getRoundOutcome(round.results || []);
+      const roundResult = _getRoundResult(round.results || []);
 
       // Ronda incompleta: no guardar
-      if (!outcome) return;
+      if (!roundResult) return;
 
-      // Online: no guardar empates (doble seguridad además de la validación del form)
-      if (isOnline && outcome === 'draw') return;
+      // Online: no guardar empates
+      if (isOnline && roundResult.outcome === 'draw') return;
 
-      // Para empates (físico): guardar los dos resultados individuales W y L tal cual
-      // Para wins/losses: guardar todos los resultados individuales que tengan valor
-      round.results.forEach(result => {
-        if (!result) return;
-        if (result === 'draw') return; // el círculo '=' no se inserta como fila individual
-
-        gameRows.push({
-          user_id:            userId,
-          deck_id:            deckId,
-          deck_name:          deckName,
-          archetype:          deckArchetype || null,
-          opponent_archetype: round.opponentArchetype,
-          opponent_name:      round.opponentName?.trim() || '',
-          result,
-          note:               round.note?.trim() || '',
-          tournament_id:      tournamentId,
-        });
+      // Una sola fila por ronda con el resultado y score de la ronda completa
+      gameRows.push({
+        user_id:            userId,
+        deck_id:            deckId,
+        deck_name:          deckName,
+        archetype:          deckArchetype || null,
+        opponent_archetype: round.opponentArchetype,
+        opponent_name:      round.opponentName?.trim() || '',
+        result:             roundResult.outcome,
+        score:              roundResult.score,
+        note:               round.note?.trim() || '',
+        tournament_id:      tournamentId,
       });
     });
 

@@ -1,87 +1,41 @@
-// src/components/matchup/MyMatchupMatrixDetails.js
-import React, { useMemo } from 'react';
+// src/components/stats/GlobalMatchupDetails.js
+import React from 'react';
 import Modal from '../shared/Modal';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
-const COLORS = { win: '#4ade80', loss: '#f87171', draw: '#3b82f6' };
+const COLORS = { win: '#4ade80', loss: '#f87171' };
 
-const expandRoundToGames = (result, score) => {
-  const s = score || (result === 'win' ? '2-0' : result === 'draw' ? '1-1' : '0-2');
-  if (s === '2-0') return ['win', 'win'];
-  if (s === '2-1') return ['win', 'win', 'loss'];
-  if (s === '0-2') return ['loss', 'loss'];
-  if (s === '1-2') return ['win', 'loss', 'loss'];
-  if (s === '1-1') return ['win', 'loss'];
-  if (result === 'win')  return ['win', 'win'];
-  if (result === 'loss') return ['loss', 'loss'];
-  return ['win', 'loss'];
-};
+const GlobalMatchupDetails = ({ playerArch, oppArch, matchupMatrix, onClose }) => {
+  if (!playerArch || !oppArch) return null;
 
-const MyMatchupMatrixDetails = ({ user, playerArch, oppArch, games, onClose }) => {
-  const stats = useMemo(() => {
-    if (!games || !playerArch || !oppArch) return null;
+  // Buscar la fila del array SQL para playerArch vs oppArch
+  const row = (matchupMatrix || []).find(
+    r => r.player_archetype === playerArch && r.opponent_archetype === oppArch
+  );
 
-    const relevantRounds = games.filter(g =>
-      (g.archetype === playerArch && g.opponent_archetype === oppArch) ||
-      (g.archetype === oppArch    && g.opponent_archetype === playerArch)
-    );
-
-    let wins = 0, losses = 0, draws = 0;
-
-    for (const round of relevantRounds) {
-      const isCanonical = round.archetype === playerArch;
-      if (round.result === 'draw' || round.score === '1-1') {
-        draws++;
-        continue;
-      }
-      const individualResults = expandRoundToGames(round.result, round.score);
-      for (const indResult of individualResults) {
-        const normalizedResult = isCanonical ? indResult : (indResult === 'win' ? 'loss' : 'win');
-        if (normalizedResult === 'win') wins++;
-        else losses++;
-      }
-    }
-
-    const total = wins + losses + draws;
-    const decided = wins + losses;
-    const winrate = decided > 0 ? Math.round((wins / decided) * 1000) / 10 : null;
-
-    return { wins, losses, draws, total, winrate };
-  }, [games, playerArch, oppArch]);
-
-  if (!stats) return null;
-
-  const { wins, losses, draws, total, winrate } = stats;
-  const decided = wins + losses;
+  const wins    = row ? parseInt(row.wins,  10) : 0;
+  const total   = row ? parseInt(row.total, 10) : 0;
+  const losses  = total - wins;
+  const winrate = row && total > 0 ? parseFloat(row.winrate) : null;
+  const winrateColor = winrate !== null ? (winrate >= 50 ? '#4ade80' : '#f87171') : '#64748b';
+  const winrateLabel = winrate !== null ? `${winrate.toFixed(1)}%` : '—';
 
   const pieData = total > 0
-    ? [
-        { name: 'Victorias', value: wins },
-        { name: 'Derrotas',  value: losses },
-        ...(draws > 0 ? [{ name: 'Empates', value: draws }] : []),
-      ]
+    ? [{ name: 'Victorias', value: wins }, { name: 'Derrotas', value: losses }]
     : [{ name: 'Sin datos', value: 1 }];
+  const pieColors = total > 0 ? [COLORS.win, COLORS.loss] : ['#1e293b'];
 
-  const pieColors = total > 0
-    ? [COLORS.win, COLORS.loss, COLORS.draw]
-    : ['#1e293b'];
+  const barRows = total > 0 ? [
+    { label: 'Victorias', value: wins,   color: COLORS.win,  pct: wins   / total * 100 },
+    { label: 'Derrotas',  value: losses, color: COLORS.loss, pct: losses / total * 100 },
+  ] : [];
 
   const statPills = [
-    { label: 'Winrate',   value: winrate !== null ? `${winrate}%` : '—', color: winrate !== null ? (winrate >= 50 ? '#4ade80' : '#f87171') : '#64748b' },
-    { label: 'Victorias', value: wins,   color: '#4ade80' },
-    { label: 'Derrotas',  value: losses, color: '#f87171' },
-    ...(draws > 0 ? [{ label: 'Empates', value: draws, color: '#3b82f6' }] : []),
-    { label: 'Partidas',  value: total,  color: '#94a3b8' },
+    { label: 'Winrate',   value: winrateLabel, color: winrateColor },
+    { label: 'Victorias', value: wins,          color: '#4ade80' },
+    { label: 'Derrotas',  value: losses,        color: '#f87171' },
+    { label: 'Partidas',  value: total,         color: '#94a3b8' },
   ];
-
-  const barRows = [
-    { label: 'Victorias', value: wins,   color: COLORS.win,  pct: decided > 0 ? (wins   / decided * 100) : 0 },
-    { label: 'Derrotas',  value: losses, color: COLORS.loss, pct: decided > 0 ? (losses / decided * 100) : 0 },
-    ...(draws > 0 ? [{ label: 'Empates', value: draws, color: COLORS.draw, pct: total > 0 ? (draws / total * 100) : 0 }] : []),
-  ];
-
-  const winrateColor = winrate !== null ? (winrate >= 50 ? '#4ade80' : '#f87171') : '#64748b';
-  const winrateLabel = winrate !== null ? `${winrate}%` : '—';
 
   return (
     <Modal onClose={onClose}>
@@ -96,7 +50,7 @@ const MyMatchupMatrixDetails = ({ user, playerArch, oppArch, games, onClose }) =
         }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'radial-gradient(circle at 80% 20%, rgba(99,102,241,0.15) 0%, transparent 60%)', pointerEvents: 'none' }} />
           <div style={{ fontSize: '0.7rem', color: '#818cf8', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Matchup combinado
+            Matchup global
           </div>
           <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#f1f5f9' }}>
             {playerArch} <span style={{ color: '#475569' }}>vs</span> {oppArch}
@@ -124,7 +78,7 @@ const MyMatchupMatrixDetails = ({ user, playerArch, oppArch, games, onClose }) =
               {/* Chart area */}
               <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '10px', padding: '16px 20px', marginBottom: '16px' }}>
 
-                {/* Dona + label central via SVG overlay */}
+                {/* Dona con label central */}
                 <div style={{ position: 'relative', height: '160px', marginBottom: '16px' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -132,7 +86,7 @@ const MyMatchupMatrixDetails = ({ user, playerArch, oppArch, games, onClose }) =
                         data={pieData}
                         cx="50%" cy="50%"
                         innerRadius={44} outerRadius={66}
-                        paddingAngle={total > 0 ? 3 : 0}
+                        paddingAngle={3}
                         dataKey="value"
                         startAngle={90} endAngle={-270}
                         isAnimationActive={false}
@@ -143,7 +97,7 @@ const MyMatchupMatrixDetails = ({ user, playerArch, oppArch, games, onClose }) =
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
-                  {/* Label central superpuesto */}
+                  {/* Label central */}
                   <div style={{
                     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -165,16 +119,12 @@ const MyMatchupMatrixDetails = ({ user, playerArch, oppArch, games, onClose }) =
                       <span style={{ fontSize: '0.75rem', color: '#64748b', width: '60px', textAlign: 'right', flexShrink: 0 }}>{label}</span>
                       <div style={{ flex: 1, height: '26px', background: 'rgba(255,255,255,0.04)', borderRadius: '5px', overflow: 'hidden' }}>
                         <div style={{
-                          width: `${Math.max(pct, 0)}%`,
-                          height: '100%',
-                          background: color + '38',
-                          borderRadius: '5px',
+                          width: `${Math.max(pct, 0)}%`, height: '100%',
+                          background: color + '38', borderRadius: '5px',
                           display: 'flex', alignItems: 'center', paddingLeft: '8px',
                           minWidth: pct > 0 ? '44px' : '0',
                         }}>
-                          {pct > 0 && (
-                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color }}>{pct.toFixed(1)}%</span>
-                          )}
+                          {pct > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 700, color }}>{pct.toFixed(1)}%</span>}
                         </div>
                       </div>
                       <span style={{ fontSize: '0.72rem', color: '#475569', width: '16px', textAlign: 'right', flexShrink: 0 }}>{value}</span>
@@ -191,7 +141,6 @@ const MyMatchupMatrixDetails = ({ user, playerArch, oppArch, games, onClose }) =
                     </div>
                   ))}
                 </div>
-
               </div>
             </>
           )}
@@ -205,10 +154,9 @@ const MyMatchupMatrixDetails = ({ user, playerArch, oppArch, games, onClose }) =
             Cerrar
           </button>
         </div>
-
       </div>
     </Modal>
   );
 };
 
-export default MyMatchupMatrixDetails;
+export default GlobalMatchupDetails;
