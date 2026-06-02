@@ -416,6 +416,8 @@ const GameHistoryPage = () => {
         <ImportGamesModal
           onClose={() => { setShowImportModal(false); }}
           onImport={handleImport}
+          decks={decks}
+          archetypes={archetypeNames}
         />
       )}
 
