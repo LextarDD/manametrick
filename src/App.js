@@ -6,6 +6,7 @@ import ArchetypePage from './pages/ArchetypePage';
 import MyDecksPage from './pages/MyDecksPage';
 import AddDeckPage from './pages/AddDeckPage';
 import MyStatsPage from './pages/MyStatsPage';
+import MyTournamentsPage from './pages/MyTournamentsPage';
 import MyMatchupPage from './pages/MyMatchupPage';
 import GameHistoryPage from './pages/GameHistoryPage';
 import Modal from './components/shared/Modal';
@@ -25,11 +26,12 @@ const PrivateRoute = ({ children }) => {
 };
 
 const NAV_ITEMS = [
-  { to: '/',            icon: '🌐', label: 'Vista global', exact: true },
-  { to: '/my-decks',   icon: '🃏', label: 'Mis mazos',    auth: true },
-  { to: '/my-stats',   icon: '📊', label: 'Mis stats',    auth: true },
-  { to: '/my-matchup', icon: '⚔',  label: 'Matchups',     auth: true },
-  { to: '/my-games',   icon: '📋', label: 'Partidas',     auth: true },
+  { to: '/',                icon: '🌐', label: 'Meta Global',   exact: true },
+  { divider: true },
+  { to: '/my-decks',        icon: '🃏', label: 'Mis mazos',     auth: true },
+  { to: '/my-games',        icon: '📋', label: 'Mis Partidas',  auth: true },
+  { to: '/my-tournaments',  icon: '🏆', label: 'Mis Torneos',   auth: true },
+  { to: '/my-matchup',      icon: '⚔',  label: 'Mi Meta',       auth: true },
 ];
 
 const Sidebar = ({ user, onLogout, onShowAuth, collapsed, onToggle }) => {
@@ -37,65 +39,75 @@ const Sidebar = ({ user, onLogout, onShowAuth, collapsed, onToggle }) => {
   return (
     <>
       <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">🧙</div>
-        <span className="sidebar-logo-name">ManaMetrick</span>
-      </div>
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-icon">🧙</div>
+          <span className="sidebar-logo-name">ManaMetrick</span>
+        </div>
 
-      <nav className="sidebar-nav">
-        {NAV_ITEMS.map(item => {
-          if (item.auth && !user) return null;
-          const isActive = item.exact
-            ? location.pathname === item.to
-            : location.pathname.startsWith(item.to);
-          return (
-            <NavLink key={item.to} to={item.to} className={`nav-item ${isActive ? 'active' : ''}`}>
-              <span className="nav-icon">{item.icon}</span>
-              {item.label}
-            </NavLink>
-          );
-        })}
-      </nav>
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map((item, i) => {
+            if (item.divider) {
+              return (
+                <div key={`divider-${i}`} style={{
+                  height: 1,
+                  background: 'rgba(255,255,255,0.07)',
+                  margin: '8px 14px',
+                  flexShrink: 0,
+                }} />
+              );
+            }
+            if (item.auth && !user) return null;
+            const isActive = item.exact
+              ? location.pathname === item.to
+              : location.pathname.startsWith(item.to);
+            return (
+              <NavLink key={item.to} to={item.to} className={`nav-item ${isActive ? 'active' : ''}`}>
+                <span className="nav-icon">{item.icon}</span>
+                {item.label}
+              </NavLink>
+            );
+          })}
+        </nav>
 
-      <div className="sidebar-footer" style={{ padding: '14px 10px 0' }}>
-        {user ? (
-          <>
-            <div style={{ fontSize: 11, color: '#5a5a82', padding: '0 14px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user.email}
-            </div>
+        <div className="sidebar-footer" style={{ padding: '14px 10px 0' }}>
+          {user ? (
+            <>
+              <div style={{ fontSize: 11, color: '#5a5a82', padding: '0 14px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.email}
+              </div>
+              <button
+                onClick={onLogout}
+                className="nav-item"
+                style={{ width: '100%', background: 'none', border: '1px solid transparent', textAlign: 'left', cursor: 'pointer' }}
+              >
+                <span className="nav-icon">🚪</span>Salir
+              </button>
+            </>
+          ) : (
             <button
-              onClick={onLogout}
-              className="nav-item"
-              style={{ width: '100%', background: 'none', border: '1px solid transparent', textAlign: 'left', cursor: 'pointer' }}
+              onClick={onShowAuth}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                border: 'none',
+                borderRadius: 8,
+                color: '#fff',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'center',
+                letterSpacing: '0.03em',
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
-              <span className="nav-icon">🚪</span>Salir
+              Iniciar sesión
             </button>
-          </>
-        ) : (
-          <button
-            onClick={onShowAuth}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              border: 'none',
-              borderRadius: 8,
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              textAlign: 'center',
-              letterSpacing: '0.03em',
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-          >
-            Iniciar sesión
-          </button>
-        )}
-      </div>
-    </aside>
+          )}
+        </div>
+      </aside>
       <button
         className={`sidebar-toggle${collapsed ? ' sidebar-toggle--collapsed' : ''}`}
         onClick={onToggle}
@@ -133,9 +145,11 @@ const AppRoutes = () => {
           <Route path="/archetype/:name" element={<ArchetypePage />} />
           <Route path="/my-decks" element={<PrivateRoute><MyDecksPage /></PrivateRoute>} />
           <Route path="/my-decks/new" element={<PrivateRoute><AddDeckPage /></PrivateRoute>} />
-          <Route path="/my-stats" element={<PrivateRoute><MyStatsPage /></PrivateRoute>} />
-          <Route path="/my-matchup" element={<PrivateRoute><MyMatchupPage /></PrivateRoute>} />
           <Route path="/my-games" element={<PrivateRoute><GameHistoryPage /></PrivateRoute>} />
+          <Route path="/my-tournaments" element={<PrivateRoute><MyTournamentsPage /></PrivateRoute>} />
+          <Route path="/my-matchup" element={<PrivateRoute><MyMatchupPage /></PrivateRoute>} />
+          {/* Redirect legacy route */}
+          <Route path="/my-stats" element={<Navigate to="/my-decks" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -173,12 +173,42 @@ function StatRow({ item, onClick, index }) {
   );
 }
 
+
+const pageNavBtn = (disabled) => ({
+  background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6,
+  color: disabled ? '#2a2a48' : '#6a6a9a', cursor: disabled ? 'default' : 'pointer',
+  fontSize: 14, padding: '4px 10px', transition: 'all 0.15s',
+});
+const pageNumBtn = (active) => ({
+  background: active ? 'rgba(108,87,255,0.2)' : 'transparent',
+  border: `1px solid ${active ? 'rgba(108,87,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+  borderRadius: 6, color: active ? '#a89fff' : '#6a6a9a', cursor: 'pointer',
+  fontSize: 13, fontWeight: active ? 600 : 400, padding: '4px 10px', minWidth: 32, transition: 'all 0.15s',
+});
+
+function Pagination({ page, total, pageSize, onChange }) {
+  const totalPages = Math.ceil(total / pageSize);
+  if (totalPages <= 1) return null;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 }}>
+      <button onClick={() => onChange(Math.max(1, page - 1))} disabled={page === 1} style={pageNavBtn(page === 1)}>←</button>
+      {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+        <button key={p} onClick={() => onChange(p)} style={pageNumBtn(p === page)}>{p}</button>
+      ))}
+      <button onClick={() => onChange(Math.min(totalPages, page + 1))} disabled={page === totalPages} style={pageNavBtn(page === totalPages)}>→</button>
+    </div>
+  );
+}
+
 export default function MyStats({ games, decks, archetypes, onCreateTournament, user }) {
   const [tab, setTab] = useState('archetypes');
   const [sortBy, setSortBy] = useState('winrate_desc');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selected, setSelected] = useState(null);
+  const [archPage, setArchPage] = useState(1);
+  const [deckPage, setDeckPage] = useState(1);
+  const PAGE_SIZE = 4;
 
   const filteredGames = useMemo(() => {
     return games.filter(g => {
@@ -228,7 +258,7 @@ export default function MyStats({ games, decks, archetypes, onCreateTournament, 
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={dateStyle} />
         </div>
         {(dateFrom || dateTo) && (
-          <button onClick={() => { setDateFrom(''); setDateTo(''); }}
+          <button onClick={() => { setDateFrom(''); setDateTo(''); setArchPage(1); setDeckPage(1); }}
             style={{ padding: '5px 12px', background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
             Limpiar
           </button>
@@ -239,14 +269,14 @@ export default function MyStats({ games, decks, archetypes, onCreateTournament, 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 4, gap: 2 }}>
           {[{ value: 'archetypes', label: 'Por arquetipo' }, { value: 'decks', label: 'Por mazo' }].map(opt => (
-            <button key={opt.value} onClick={() => setTab(opt.value)} style={{ padding: '8px 18px', background: tab === opt.value ? 'rgba(99,102,241,0.7)' : 'transparent', color: tab === opt.value ? '#fff' : 'rgba(255,255,255,0.5)', border: 'none', borderRadius: 7, fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
+            <button key={opt.value} onClick={() => { setTab(opt.value); setArchPage(1); setDeckPage(1); }} style={{ padding: '8px 18px', background: tab === opt.value ? 'rgba(99,102,241,0.7)' : 'transparent', color: tab === opt.value ? '#fff' : 'rgba(255,255,255,0.5)', border: 'none', borderRadius: 7, fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
               {opt.label}
             </button>
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Ordenar:</span>
-          <CustomSelect value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
+          <CustomSelect value={sortBy} onChange={(v) => { setSortBy(v); setArchPage(1); setDeckPage(1); }} options={SORT_OPTIONS} />
         </div>
       </div>
 
@@ -254,14 +284,22 @@ export default function MyStats({ games, decks, archetypes, onCreateTournament, 
       {tab === 'archetypes' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {archetypeStats.length === 0 ? <Empty text="No hay partidas registradas con arquetipo." /> : (
-            <><ListHeader />{archetypeStats.map((item, i) => <StatRow key={item.name} item={item} index={i} onClick={() => setSelected({ type: 'archetype', name: item.name })} />)}</>
+            <>
+              <ListHeader />
+              {archetypeStats.slice((archPage-1)*PAGE_SIZE, archPage*PAGE_SIZE).map((item, i) => <StatRow key={item.name} item={item} index={i} onClick={() => setSelected({ type: 'archetype', name: item.name })} />)}
+              {archetypeStats.length > PAGE_SIZE && <Pagination page={archPage} total={archetypeStats.length} pageSize={PAGE_SIZE} onChange={setArchPage} />}
+            </>
           )}
         </div>
       )}
       {tab === 'decks' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {deckStats.length === 0 ? <Empty text="No hay partidas registradas con mazos." /> : (
-            <><ListHeader />{deckStats.map((item, i) => <StatRow key={item.deckId} item={item} index={i} onClick={() => setSelected({ type: 'deck', name: item.name, deckId: item.deckId })} />)}</>
+            <>
+              <ListHeader />
+              {deckStats.slice((deckPage-1)*PAGE_SIZE, deckPage*PAGE_SIZE).map((item, i) => <StatRow key={item.deckId} item={item} index={i} onClick={() => setSelected({ type: 'deck', name: item.name, deckId: item.deckId })} />)}
+              {deckStats.length > PAGE_SIZE && <Pagination page={deckPage} total={deckStats.length} pageSize={PAGE_SIZE} onChange={setDeckPage} />}
+            </>
           )}
         </div>
       )}

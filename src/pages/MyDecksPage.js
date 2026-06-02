@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import useDecks from '../hooks/useDecks';
+import useGames from '../hooks/useGames';
 import useArchetypes from '../hooks/useArchetypes';
 import DeckList from '../components/deck/DeckList';
 import EditDeckModal from '../components/deck/EditDeckModal';
+import MyStats from '../components/stats/MyStats';
 
 const MyDecksPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { decks, loading, error, updateDeck, deleteDeck, archiveDeck } = useDecks(user?.id);
+  const { games, loading: gamesLoading } = useGames(user?.id);
   const { archetypes } = useArchetypes();
   const [editingDeck, setEditingDeck] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -18,11 +21,11 @@ const MyDecksPage = () => {
     return await updateDeck(deckId, updates);
   };
 
-  if (loading) return (
+  if (loading || gamesLoading) return (
     <div className="page">
       <div className="loading-state">
         <div className="spinner" />
-        <span>Cargando mazos...</span>
+        <span>Cargando...</span>
       </div>
     </div>
   );
@@ -39,6 +42,23 @@ const MyDecksPage = () => {
 
   return (
     <div className="page">
+      {/* ── Resumen estadísticas (sin botón nuevo torneo) ── */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-body">
+          <div className="card-title">
+            <div className="card-title-icon purple">📊</div>
+            <span className="card-title-text">Resumen general</span>
+          </div>
+          <MyStats
+            games={games}
+            decks={decks}
+            archetypes={archetypes}
+            user={user}
+          />
+        </div>
+      </div>
+
+      {/* ── Mis mazos ── */}
       <div className="page-header anim-fade-up">
         <div>
           <h1 className="page-title">Mis mazos</h1>
